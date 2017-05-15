@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser(description='Calculate 3d Structure Factor')
 parser.add_argument('-i', '--input', default='', type=str, help='Input topolgy and trajectory basename')
 parser.add_argument('-top', '--topology', default='', type=str, help='Input topolgy filename')
 parser.add_argument('-traj', '--trajectory', default='', type=str, help='Input trajectory filename')
-parser.add_argument('-o', '--output', default='', type=str, help='override output basename')
+#parser.add_argument('-o', '--output', default='', type=str, help='override output basename')
 
 
 args=parser.parse_args()
@@ -35,8 +35,8 @@ else:
 	traj_file=args.trajectory
 	basename=args.topology.rsplit('.', 1)[0]
 
-if len(args.output)>0:
-	basename=args.output
+#if len(args.output)>0:
+#	basename=args.output
 	
 #print basename
 #exit()
