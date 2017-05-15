@@ -21,6 +21,8 @@ parser = argparse.ArgumentParser(description='Calculate 3d Structure Factor')
 parser.add_argument('-i', '--input', default='', type=str, help='Input topolgy and trajectory basename')
 parser.add_argument('-top', '--topology', default='', type=str, help='Input topolgy filename')
 parser.add_argument('-traj', '--trajectory', default='', type=str, help='Input trajectory filename')
+parser.add_argument('-o', '--output', default='', type=str, help='override output basename')
+
 
 args=parser.parse_args()
 
@@ -32,6 +34,9 @@ else:
 	top_file=args.topology
 	traj_file=args.trajectory
 	basename=args.topology.rsplit('.', 1)[0]
+
+if len(args.output)>0:
+	basename=args.output
 	
 #print basename
 #exit()
@@ -42,8 +47,6 @@ if platform.system()=="Windows":  #path separators
 	fd="\\"
 else:
 	fd="/"
-
-
 
 	
 label="out_"+basename
@@ -68,7 +71,7 @@ if not os.path.isfile(sfname+".npz"):					#check to see if SF needs to be calcul
 dpl=np.load(sfname+".npz")					#load 3d SF
 grid=dpl['kgridplt']
 
-p2d.mainlabel=basename+"o"			#title for plots
+p2d.mainlabel=basename			#title for plots
 
 dir=p2d.mainlabel+"_plots"+fd	#set up directories for saving plots
 sfdir=dir+"structure_factor"+fd
