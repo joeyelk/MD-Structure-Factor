@@ -5,7 +5,7 @@ from scipy.interpolate import RegularGridInterpolator
 import math
 import os.path
 
-#import load_traj as lt
+import load_traj as lt
 import dens                
 import plot2d as p2d  
 
@@ -38,8 +38,7 @@ else:
 #if len(args.output)>0:
 #	basename=args.output
 	
-#print basename
-#exit()
+
 
 print "running on",platform.system(),platform.release(),platform.version()
 
@@ -60,7 +59,7 @@ dens.Nspatialgrid=128
 if not os.path.isfile(sfname+".npz"):					#check to see if SF needs to be calculated
 	if not os.path.isfile(tfname+".npz"):  				#check to see if trajectory needs to be processed
 		print "processing trajectory file "+traj_file
-		#lt.process_gro(top_file,traj_file,tfname)   					#Process trajectory into numpy array.  Commented to run on windows
+		lt.process_gro(top_file,traj_file,tfname)   					#Process trajectory into numpy array.  Commented to run on windows
 		print 'done'
 	traj=np.load(tfname+".npz")							#load processed trajectory
 	rad=dens.load_radii("radii.txt")					#load radii definitions from file
