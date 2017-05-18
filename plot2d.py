@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import os
 from scipy.interpolate import RegularGridInterpolator
 import math
+import tqdm
 
 mainlabel=""
 
@@ -77,6 +78,59 @@ def sfplot(data,**kwargs):
 		plt.savefig(filename+format,dpi=DPI)
 		plt.clf()
 
+def radial_integrate(D,Nbins,outputname):
+
+
+
+	#X =D[:,0,0,0]
+	#Y =D[0,:,0,1]
+	#Z =D[0,0,:,2]
+	
+	SF=D[:,:,:,3]
+	#SF[SF.shape[0]/2,SF.shape[1]/2,SF.shape[2]/2]=0.0
+	
+	#for i in tqdm.tqdm(xrange(100)):
+		#SF[np.unravel_index(np.argmax(SF),(SF.shape))]=0.0
+		
+	#print SF.shape[0]/2,SF.shape[1]/2,SF.shape[2]/2
+	#SF[127,126,127]=0.0
+	#exit()
+	R=(D[:,:,:,0]**2).astype(np.float16)+(D[:,:,:,1]**2).astype(np.float16)+(D[:,:,:,2]**2).astype(np.float16)
+	H,E=np.histogram(R,bins=Nbins,weights=SF)
+	Hc,E=np.histogram(R,bins=Nbins)
+	Hc=np.where(Hc!=0,Hc,1.0)
+	H/=Hc
+	H[:1]=0.0
+	H/=np.amax(H)
+	
+	#print np.argmax(H)
+	
+	
+	plt.plot(E[:-1],H)
+	plt.xlim(0,5)
+	plt.savefig(outputname,dpi=DPI)
+	
+	
+	#print H
+	#print type(H)
+	#print H.shape
+	#print H.shape
+	#print R
+	#print R.shape
+	
+		
+	# ES = RegularGridInterpolator((X, Y, Z), SF)	
+	
+	# pts=[]
+	# for x in np.linspace(np.amin(X),np.amax(X),X.size*Ni):
+		# for y in np.linspace(np.amin(Y),np.amax(Y),Y.size*Ni):
+			# for z in np.linspace(np.amin(Z),np.amax(Z),Z.size*Ni):
+				# pts.append((x,y,z))
+			
+	# A=ES(pts)
+	# B=
+	
+
 
 
 def Plot_Ewald_Sphere_Correction_old(D,wavelength_angstroms):  #pass full 3d data,SF,wavelength in angstroms
@@ -119,6 +173,8 @@ def Plot_Ewald_Sphere_Correction_old(D,wavelength_angstroms):  #pass full 3d dat
 	
 def Plot_Ewald_Sphere_Correction(D,wavelength_angstroms,**kwargs):  #pass full 3d data,SF,wavelength in angstroms
 
+
+	print D.shape
 
 	if not os.path.exists(path):
 		os.makedirs(path)
