@@ -130,7 +130,7 @@ def Plot_Ewald_Sphere_Correction(D,wavelength_angstroms,**kwargs):  #pass full 3
 	
 	K_ES=2.0*math.pi/wavelength_angstroms  #calculate k for incident xrays in inverse angstroms
 	
-	ES = RegularGridInterpolator((X, Y, Z), SF)		
+	ES = RegularGridInterpolator((X, Y, Z), SF,bounds_error=False)		
 	
 	xypts=[]
 	for ix in xrange(D.shape[0]):
