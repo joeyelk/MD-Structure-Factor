@@ -21,6 +21,8 @@ parser = argparse.ArgumentParser(description='Calculate 3d Structure Factor')
 parser.add_argument('-i', '--input', default='', type=str, help='Input topolgy and trajectory basename')
 parser.add_argument('-top', '--topology', default='', type=str, help='Input topolgy filename')
 parser.add_argument('-traj', '--trajectory', default='', type=str, help='Input trajectory filename')
+parser.add_argument('-fi', '--first_frame', default=0, type=int, help='frame to start at')
+parser.add_argument('-fr', '--force_recompute', default=0, type=int, help='force recomputing SF (if >=1) or trajectory and SF(if >=2)')
 #parser.add_argument('-o', '--output', default='', type=str, help='override output basename')
 
 
@@ -56,19 +58,29 @@ sfname=label+"_sf"
 dens.Nspatialgrid=128
 
 
-if not os.path.isfile(sfname+".npz"):					#check to see if SF needs to be calculated
-	if not os.path.isfile(tfname+".npz"):  				#check to see if trajectory needs to be processed
+if args.force_recompute>0 or not os.path.isfile(sfname+".npz"):					#check to see if SF needs to be calculated
+	if args.force_recompute>1 or not os.path.isfile(tfname+".npz"):  				#check to see if trajectory needs to be processed
 		print "processing trajectory file "+traj_file
 		lt.process_gro(top_file,traj_file,tfname)   					#Process trajectory into numpy array.  Commented to run on windows
 		print 'done'
 	traj=np.load(tfname+".npz")							#load processed trajectory
 	rad=dens.load_radii("radii.txt")					#load radii definitions from file
 
-	dens.compute_sf(traj['coords'],traj['dims'],traj['typ'],sfname,rad)		#compute time-averaged 3d structure factor and save to sfname.npz
+	dens.compute_sf(traj['coords'][args.first_frame:,...],traj['dims'],traj['typ'],sfname,rad)		#compute time-averaged 3d structure factor and save to sfname.npz
 
 
 dpl=np.load(sfname+".npz")					#load 3d SF
+
 grid=dpl['kgridplt']
+
+#print grid[:,0,0,0]
+#print grid.shape
+#exit()
+#print grid[grid.shape[0]/2,grid.shape[1]/2,grid.shape[2]/2,3]
+#print grid[grid.shape[0]/2+1,grid.shape[1]/2,grid.shape[2]/2,3]
+#exit()
+
+
 
 p2d.mainlabel=basename			#title for plots
 
@@ -77,18 +89,24 @@ sfdir=dir+"structure_factor"+fd
 sfsubdir=sfdir+"additional_plots"+fd
 EWdir=dir+"Ewald_Corrected"+fd
 
-p2d.path=EWdir
-p2d.Plot_Ewald_Sphere_Correction(grid,1.54)		#compute Ewald-corrected SF cross sections in xy,xz,yz planes
+
+if True:
+	print "Ewald plots"
+	p2d.path=EWdir
+	p2d.Plot_Ewald_Sphere_Correction(grid,1.54)		#compute Ewald-corrected SF cross sections in xy,xz,yz planes
 
 #xy,yz,xz planes of SF
 if True:
+	print "xy,yz,xz plots"
 	p2d.path=dir+sfdir
 	p2d.sfplot(grid[grid.shape[0]/2,:,:,:])		#plot yz plane
 	p2d.sfplot(grid[:,grid.shape[1]/2,:,:])		#plot xz plane
 	p2d.sfplot(grid[:,:,grid.shape[2]/2,:])		#plot xy plane
+	p2d.radial_integrate(grid,300,dir+"radial.png")
 
 
 if True:  #additional slices through SF
+	print "additional plots"
 	Nsteps=8
 	p2d.path=sfsubdir+"xplots"+fd
 	p2d.savelin=False
