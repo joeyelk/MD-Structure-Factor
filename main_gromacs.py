@@ -73,7 +73,7 @@ EWdir = dir+"Ewald_Corrected"+fd
 
 p2d.path = EWdir
 p2d.Plot_Ewald_Sphere_Correction(grid, 1.54, args.cscale, args.lcscale)		# compute Ewald-corrected SF cross sections in xy,xz,yz planes
-
+exit()
 # xy,yz,xz planes of SF
 if True:
     p2d.path = dir + sfdir

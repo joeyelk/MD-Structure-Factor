@@ -203,6 +203,8 @@ def Plot_Ewald_Sphere_Correction(D, wavelength_angstroms, cscale=1, lcscale=1, *
     EWDmax_xzlog = np.amax(np.log(EWDxz))
     plt.contourf(D[:, 0, :, 0], D[:, 0, :, 2], np.log(EWDxz), contours, vmax=lcscale*EWDmax_xzlog, **kwargs)
     plt.savefig(path + fname + "xzlog" + format, dpi=DPI)
+    # plt.xlim([-2.5, 2.5])
+    # plt.ylim([-2.5, 2.5])
     plt.clf()
 
     plt.figure(5)
@@ -219,8 +221,8 @@ def Plot_Ewald_Sphere_Correction(D, wavelength_angstroms, cscale=1, lcscale=1, *
     plt.xlabel(ylab)
     plt.ylabel(zlab)
     EWDmax_yzlog = np.amax(np.log(EWDyz))
-    plt.contourf(D[0, :, :, 1], D[0, :, :, 2], np.log(EWDyz), contours, vamx=lcscale*EWDmax_yzlog, **kwargs)
+    plt.contourf(D[0, :, :, 1], D[0, :, :, 2], np.log(EWDyz), contours, vmax=lcscale*EWDmax_yzlog, **kwargs)
+    # plt.xlim([-2.5, 2.5])
+    # plt.ylim([-2.5, 2.5])
     plt.savefig(path + fname + "yzlog" + format, dpi=DPI)
     plt.clf()
-
-    plt.show()
