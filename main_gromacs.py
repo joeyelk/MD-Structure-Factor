@@ -73,7 +73,7 @@ if args.force_recompute>0 or not os.path.isfile(sfname+".npz"):					#check to se
 	traj=np.load(tfname+".npz")							#load processed trajectory
 	rad=dens.load_radii("radii.txt")					#load radii definitions from file
 
-	dens.compute_sf(traj['coords'][args.first_frame:,...],traj['dims'],traj['typ'],sfname,rad)		#compute time-averaged 3d structure factor and save to sfname.npz
+	dens.compute_sf(traj['coords'][args.first_frame:,...],traj['dims'][args.first_frame:,...],traj['typ'],sfname,rad)		#compute time-averaged 3d structure factor and save to sfname.npz
 
 
 dpl=np.load(sfname+".npz")					#load 3d SF
