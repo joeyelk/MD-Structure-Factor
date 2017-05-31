@@ -25,7 +25,7 @@ title_fontsize = 9
 path = ""
 
 
-def sfplot(data, **kwargs):
+def sfplot(data, lcscale, **kwargs):
     """ data: plot slice through structure factor"""
 
     if not os.path.exists(path):
@@ -58,7 +58,8 @@ def sfplot(data, **kwargs):
         plt.suptitle(ltitle, fontsize=title_fontsize)
         plt.xlabel(xlab)
         plt.ylabel(ylab)
-        plt.contourf(data[..., la[0]], data[..., la[1]], np.log(data[..., 3]), contours, **kwargs)
+        max_log = np.amax(np.log(data[..., 3]))
+        plt.contourf(data[..., la[0]], data[..., la[1]], np.log(data[..., 3]), contours, vmax=lcscale*max_log, **kwargs)
 
         plt.savefig(filename+"_log"+format, dpi=DPI)
         plt.clf()
@@ -72,6 +73,23 @@ def sfplot(data, **kwargs):
         plt.clf()
 
 
+def radial_integrate(D,Nbins,outputname):
+
+    SF = D[:, :, :, 3]
+
+    R = (D[:, :, :, 0]**2).astype(np.float16) + (D[:, :, :, 1]**2).astype(np.float16)+(D[:, :, :, 2]**2).astype(np.float16)
+    H, E = np.histogram(R, bins=Nbins, weights=SF)
+    Hc, E = np.histogram(R, bins=Nbins)
+    Hc = np.where(Hc != 0, Hc, 1.0)
+    H /= Hc
+    H[:1] = 0.0
+    H /= np.amax(H)
+
+    plt.plot(E[:-1], H)
+    plt.xlim(0, 5)
+    plt.savefig(outputname, dpi=DPI)
+
+
 def Plot_Ewald_Sphere_Correction_old(D,wavelength_angstroms):
     """ pass full 3d data,SF,wavelength in angstroms """
 
@@ -80,7 +98,7 @@ def Plot_Ewald_Sphere_Correction_old(D,wavelength_angstroms):
     Z = D[0, 0, :, 2]
     SF = D[:, :, :, 3]
 
-    K_ES = 2.0*math.pi/wavelength_angstroms  #calculate k for incident xrays in inverse angstroms
+    K_ES = 2.0*math.pi/wavelength_angstroms  # calculate k for incident xrays in inverse angstroms
 
     ES = RegularGridInterpolator((X, Y, Z), SF)
 
@@ -125,7 +143,7 @@ def Plot_Ewald_Sphere_Correction(D, wavelength_angstroms, cscale=1, lcscale=1, *
 
     K_ES = 2.0*math.pi/wavelength_angstroms  # calculate k for incident xrays in inverse angstroms
 
-    ES = RegularGridInterpolator((X, Y, Z), SF)
+    ES = RegularGridInterpolator((X, Y, Z), SF, bounds_error=False)
 
     xypts = []
     for ix in xrange(D.shape[0]):
@@ -202,9 +220,11 @@ def Plot_Ewald_Sphere_Correction(D, wavelength_angstroms, cscale=1, lcscale=1, *
     plt.ylabel(zlab)
     EWDmax_xzlog = np.amax(np.log(EWDxz))
     plt.contourf(D[:, 0, :, 0], D[:, 0, :, 2], np.log(EWDxz), contours, vmax=lcscale*EWDmax_xzlog, **kwargs)
+    lims = [np.amax(D[:, 0, :, 0]), np.amax(D[:, 0, :, 2])]
+    qmax = min(lims)
+    plt.xlim([-qmax, qmax])
+    plt.ylim([-qmax, qmax])
     plt.savefig(path + fname + "xzlog" + format, dpi=DPI)
-    # plt.xlim([-2.5, 2.5])
-    # plt.ylim([-2.5, 2.5])
     plt.clf()
 
     plt.figure(5)
