@@ -24,6 +24,7 @@ parser.add_argument('-top', '--topology', default='', type=str, help='Input topo
 parser.add_argument('-traj', '--trajectory', default='', type=str, help='Input trajectory filename')
 parser.add_argument('-fi', '--first_frame', default=0, type=int, help='frame to start at')
 parser.add_argument('-fr', '--force_recompute', default=0, type=int, help='force recomputing SF (if >=1) or trajectory and SF(if >=2)')
+parser.add_argument('-st', '--save_traj', default=0, type=int, help='set equal to 1 to save trajectory as npz file')
 #parser.add_argument('-o', '--output', default='', type=str, help='override output basename')
 
 
@@ -65,28 +66,27 @@ if args.force_recompute>0 or not os.path.isfile(sfname+".npz"):					#check to se
 		if platform.system()=="Windows":
 			print "Unable to process trajectory file on Windows"
 			exit()
-		else:
-			print "processing trajectory file "+traj_file
+		else if args.save_traj==1:
 			lt.process_gro(top_file,traj_file,tfname)   					#Process trajectory into numpy array.  
-			print 'done'
+			coords=traj['coords']
+			dims=traj['dims']
+			typ=traj['typ']
+			mass=traj['mass']
+			name=traj['name']			
+		else:
+			dims,coords,name,mass,typ=lt.process_gro(top_file,traj_file)   					#load trajectory
+		
+		
 			
 	traj=np.load(tfname+".npz")							#load processed trajectory
 	rad=dens.load_radii("radii.txt")					#load radii definitions from file
 
-	dens.compute_sf(traj['coords'][args.first_frame:,...],traj['dims'][args.first_frame:,...],traj['typ'],sfname,rad)		#compute time-averaged 3d structure factor and save to sfname.npz
+	dens.compute_sf(coords[args.first_frame:,...],dims[args.first_frame:,...],typ,sfname,rad)		#compute time-averaged 3d structure factor and save to sfname.npz
 
 
 dpl=np.load(sfname+".npz")					#load 3d SF
 
 grid=dpl['kgridplt']
-
-#print grid[:,0,0,0]
-#print grid.shape
-#exit()
-#print grid[grid.shape[0]/2,grid.shape[1]/2,grid.shape[2]/2,3]
-#print grid[grid.shape[0]/2+1,grid.shape[1]/2,grid.shape[2]/2,3]
-#exit()
-
 
 
 p2d.mainlabel=basename			#title for plots

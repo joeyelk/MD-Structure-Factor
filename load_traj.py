@@ -32,8 +32,8 @@ def process(topology_filename,trajectory_filename,output_filename):
 	np.savez_compressed(output_filename,dims=dims,coords=coords,name=name,mass=mass,typ=typ,charge=charge)
 	print 'done saving'
 
-
-def process_gro(topology_filename,trajectory_filename,output_filename):
+#output_filename is optional.  If it's not included, no npz trajectory file will be saved
+def process_gro(topology_filename,trajectory_filename,output_filename=""):
 
 	print "processing ",trajectory_filename
 	u=MDAnalysis.Universe(topology_filename,trajectory_filename)
@@ -57,10 +57,14 @@ def process_gro(topology_filename,trajectory_filename,output_filename):
 		dims[it,:]=ts.dimensions[0:3]
 		coords[it,:,:]=ts.positions
 		it+=1
-	print "saving ",output_filename
-	#print typ
-	np.savez_compressed(output_filename,dims=dims,coords=coords,name=name,mass=mass,typ=typ)
-	print 'done saving'
+	
+	
+	if len(output_filename)>0:
+		print "saving ",output_filename	
+		np.savez_compressed(output_filename,dims=dims,coords=coords,name=name,mass=mass,typ=typ)
+		print 'done saving'
+		
+	return dims,coords,name,mass,typ
 
 
 

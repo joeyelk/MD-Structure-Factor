@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.linalg
 import math
-import mayavi.mlab as mlab
+#import mayavi.mlab as mlab
 import matplotlib.pyplot as plt
 import tqdm
 
