@@ -66,7 +66,7 @@ if args.force_recompute>0 or not os.path.isfile(sfname+".npz"):					#check to se
 		if platform.system()=="Windows":
 			print "Unable to process trajectory file on Windows"
 			exit()
-		elif args.save_traj==1:
+		if args.save_traj==1:
 			lt.process_gro(top_file,traj_file,tfname)   					#Process trajectory into numpy array.  
 			coords=traj['coords']
 			dims=traj['dims']
@@ -75,12 +75,13 @@ if args.force_recompute>0 or not os.path.isfile(sfname+".npz"):					#check to se
 			name=traj['name']			
 		else:
 			dims,coords,name,mass,typ=lt.process_gro(top_file,traj_file)   					#load trajectory
-		
-		
-			
-	traj=np.load(tfname+".npz")							#load processed trajectory
+	else:
+		traj=np.load(tfname+".npz")							#load processed trajectory
+		coords=traj['coords']
+		dims=traj['dims']
+		typ=traj['typ']
+	
 	rad=dens.load_radii("radii.txt")					#load radii definitions from file
-
 	dens.compute_sf(coords[args.first_frame:,...],dims[args.first_frame:,...],typ,sfname,rad)		#compute time-averaged 3d structure factor and save to sfname.npz
 
 
