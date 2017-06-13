@@ -66,7 +66,7 @@ if args.force_recompute>0 or not os.path.isfile(sfname+".npz"):					#check to se
 		if platform.system()=="Windows":
 			print "Unable to process trajectory file on Windows"
 			exit()
-		else if args.save_traj==1:
+		elif args.save_traj==1:
 			lt.process_gro(top_file,traj_file,tfname)   					#Process trajectory into numpy array.  
 			coords=traj['coords']
 			dims=traj['dims']
