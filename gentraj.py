@@ -20,6 +20,7 @@ in the initialize() function.
 By default, all features are created by not allowing particles in the defined regions. Using the --gaussian flag will
 allow the features to be filled with points with a gaussian probability which is a function of pore/disk radius or
 layer width. The lowest probability is in the middle of those features. NOTE: Gaussian disks are not implemented yet.
+Using the -invert flag will allow particles in the defined regions only, thus inverting the configurations.
 
 The output is a .trr GROMACS trajectory file and .gro coordinate file of the last frame. Specify the number of frames
 with the -f flag and the name of the output files with the -o flag. Specify the number of particles in each frame with
@@ -55,6 +56,7 @@ def initialize():
                         'by the -r flag. The number of disks in each layer is specified with the -dpl flag')
     parser.add_argument('-dpl', '--disks_per_layer', default=5, help='Number of disks in each layer')
     parser.add_argument('-rdisk', '--disk_radius', default=0.1, help='Radius of disks')
+    parser.add_argument('-invert', '--invert', action="store_true", help='Fill in features and leave non-features empty')
 
     args = parser.parse_args()
 
@@ -235,7 +237,7 @@ if __name__ == "__main__":
     B = np.array([b*np.cos(gamma), b*np.sin(gamma), 0])  # vector in y direction
     C = np.array([c*np.cos(beta), c*((np.cos(alpha) - np.cos(gamma)*np.cos(beta))/np.sin(gamma)), V / (a*b*np.sin(gamma))])  # vector in z direction
 
-    if args.pores:
+    if args.pores or args.disks:
         pore_radius = args.radius
         rows = args.rows  # number of rows of pores
         npores = rows**2  # assumes that x and y are the same dimension
@@ -258,34 +260,58 @@ if __name__ == "__main__":
             for j in range(nlayers):
                 for k in range(disks_per_layer):
                     theta = 2*np.pi*k / disks_per_layer  # angle by which to rotate about pore axis
-                    pt = np.array([pore_radius, 0, 0])
-                    pt = Rz(pt, theta)
-                    pore = np.append(pore_locations[i, :], layer_locations[j])
-                    disk_locations[i*nlayers*disks_per_layer + j*disks_per_layer + k, :] = translate(pt, pore)
+                    pt = np.array([pore_radius, 0, 0])  # create a point an x distance away from the origin
+                    pt = Rz(pt, theta)  # rotate the point about the origin
+                    pore = np.append(pore_locations[i, :], layer_locations[j])  # tack on the z component
+                    disk_locations[i*nlayers*disks_per_layer + j*disks_per_layer + k, :] = translate(pt, pore)  # translate the point to the pore
 
     points = np.zeros([frames, npts, 3])  # will contain all positions for all frames
 
-    # generate random points inside box
-    for t in tqdm.tqdm(range(frames)):
-        for i in tqdm.tqdm(range(npts)):
-            u, v, w = np.random.rand(3)  # generate 3 random numbers between 0 and 1
-            pt = O + u * A + v * B + w * C  # places point inside 3D box defined by box vector A, B and C
-            # if --pores, --layers or --disks is specified, check to make the random point is not in the region. If it
-            # is, keep generating random points until the point is outside the region
-            if args.pores:
-                while check_pores(pt, pore_locations, pore_radius):  # force all points outside the pore region
-                    u, v, w = np.random.rand(3)
-                    pt = O + u * A + v * B + w * C
-            if args.layers:  # force all points outside layer region
-                while check_layers(pt, layer_locations, args.layer_width):
-                    u, v, w = np.random.rand(3)
-                    pt = O + u * A + v * B + w * C
-            if args.disks:
-                while check_disks(pt, disk_locations, args.layer_width, disk_radius):
-                    u, v, w = np.random.rand(3)
-                    pt = O + u * A + v * B + w * C
+    if args.invert:
+        # generate random points inside box
+        for t in tqdm.tqdm(range(frames)):
+            for i in tqdm.tqdm(range(npts)):
+                u, v, w = np.random.rand(3)  # generate 3 random numbers between 0 and 1
+                pt = O + u * A + v * B + w * C  # places point inside 3D box defined by box vector A, B and C
+                # if --pores, --layers or --disks is specified, check to make the random point is not in the region. If it
+                # is, keep generating random points until the point is outside the region
+                if args.pores:
+                    while not check_pores(pt, pore_locations, pore_radius):  # force all points outside the pore region
+                        u, v, w = np.random.rand(3)
+                        pt = O + u * A + v * B + w * C
+                if args.layers:  # force all points outside layer region
+                    while not check_layers(pt, layer_locations, args.layer_width):
+                        u, v, w = np.random.rand(3)
+                        pt = O + u * A + v * B + w * C
+                if args.disks:
+                    while not check_disks(pt, disk_locations, args.layer_width, disk_radius):
+                        u, v, w = np.random.rand(3)
+                        pt = O + u * A + v * B + w * C
 
-            points[t, i, :] = pt
+                points[t, i, :] = pt
+
+    else:
+        # generate random points inside box
+        for t in tqdm.tqdm(range(frames)):
+            for i in tqdm.tqdm(range(npts)):
+                u, v, w = np.random.rand(3)  # generate 3 random numbers between 0 and 1
+                pt = O + u * A + v * B + w * C  # places point inside 3D box defined by box vector A, B and C
+                # if --pores, --layers or --disks is specified, check to make the random point is not in the region. If it
+                # is, keep generating random points until the point is outside the region
+                if args.pores:
+                    while check_pores(pt, pore_locations, pore_radius):  # force all points outside the pore region
+                        u, v, w = np.random.rand(3)
+                        pt = O + u * A + v * B + w * C
+                if args.layers:  # force all points outside layer region
+                    while check_layers(pt, layer_locations, args.layer_width):
+                        u, v, w = np.random.rand(3)
+                        pt = O + u * A + v * B + w * C
+                if args.disks:
+                    while check_disks(pt, disk_locations, args.layer_width, disk_radius):
+                        u, v, w = np.random.rand(3)
+                        pt = O + u * A + v * B + w * C
+
+                points[t, i, :] = pt
 
     # Now write the trajectory in GROMACS format
 
