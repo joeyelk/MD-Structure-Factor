@@ -80,13 +80,13 @@ if True:
 
 # xy,yz,xz planes of SF
 if True:
-    print "xy,yz,xz plots"
-    p2d.path = dir + sfdir
-    p2d.sfplot(grid[grid.shape[0]/2, :, :, :], args.lcscale)		# plot yz plane
-    p2d.sfplot(grid[:, grid.shape[1]/2, :, :], args.lcscale)		# plot xz plane
-    p2d.sfplot(grid[:, :, grid.shape[2]/2, :], args.lcscale)		# plot xy plane
+    # print "xy,yz,xz plots"
+    # p2d.path = dir + sfdir
+    # p2d.sfplot(grid[grid.shape[0]/2, :, :, :], args.lcscale)		# plot yz plane
+    # p2d.sfplot(grid[:, grid.shape[1]/2, :, :], args.lcscale)		# plot xz plane
+    # p2d.sfplot(grid[:, :, grid.shape[2]/2, :], args.lcscale)		# plot xy plane
     p2d.radial_integrate(grid, 300, dir + "radial.png")
-
+exit()
 if True:  # additional slices through SF
     print "additional plots"
     Nsteps = 8
