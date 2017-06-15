@@ -56,6 +56,7 @@ def initialize():
                         'by the -r flag. The number of disks in each layer is specified with the -dpl flag')
     parser.add_argument('-dpl', '--disks_per_layer', default=5, help='Number of disks in each layer')
     parser.add_argument('-rdisk', '--disk_radius', default=0.1, help='Radius of disks')
+    parser.add_argument('--offset', action="store_true", help='Offset disks with respect to layers above/below')
     parser.add_argument('-invert', '--invert', action="store_true", help='Fill in features and leave non-features empty')
 
     args = parser.parse_args()
@@ -260,6 +261,8 @@ if __name__ == "__main__":
             for j in range(nlayers):
                 for k in range(disks_per_layer):
                     theta = 2*np.pi*k / disks_per_layer  # angle by which to rotate about pore axis
+                    if args.offset:
+                        theta += (j % 2) * (np.pi / disks_per_layer)
                     pt = np.array([pore_radius, 0, 0])  # create a point an x distance away from the origin
                     pt = Rz(pt, theta)  # rotate the point about the origin
                     pore = np.append(pore_locations[i, :], layer_locations[j])  # tack on the z component
