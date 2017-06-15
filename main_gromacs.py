@@ -5,7 +5,7 @@ from scipy.interpolate import RegularGridInterpolator
 import math
 import os.path
 
-import load_traj as lt
+
 import dens                
 import plot2d as p2d  
 
@@ -15,6 +15,7 @@ import platform
 import matplotlib.pyplot as plt  #must be imported after anything that imports mayavi/mlab
 
 import argparse
+
 
 parser = argparse.ArgumentParser(description='Calculate 3d Structure Factor')
 
@@ -47,6 +48,7 @@ print "running on",platform.system(),platform.release(),platform.version()
 if platform.system()=="Windows":  #path separators 
 	fd="\\"
 else:
+	import load_traj as lt
 	fd="/"
 
 	
@@ -60,13 +62,18 @@ dens.Nspatialgrid=128
 
 if args.force_recompute>0 or not os.path.isfile(sfname+".npz"):					#check to see if SF needs to be calculated
 	if args.force_recompute>1 or not os.path.isfile(tfname+".npz"):  				#check to see if trajectory needs to be processed
-		print "processing trajectory file "+traj_file
-		lt.process_gro(top_file,traj_file,tfname)   					#Process trajectory into numpy array.  Commented to run on windows
-		print 'done'
+		if platform.system()=="Windows":
+			print "Unable to process trajectory file on Windows"
+			exit()
+		else:
+			print "processing trajectory file "+traj_file
+			lt.process_gro(top_file,traj_file,tfname)   					#Process trajectory into numpy array.  
+			print 'done'
+			
 	traj=np.load(tfname+".npz")							#load processed trajectory
 	rad=dens.load_radii("radii.txt")					#load radii definitions from file
 
-	dens.compute_sf(traj['coords'][args.first_frame:,...],traj['dims'],traj['typ'],sfname,rad)		#compute time-averaged 3d structure factor and save to sfname.npz
+	dens.compute_sf(traj['coords'][args.first_frame:,...],traj['dims'][args.first_frame:,...],traj['typ'],sfname,rad)		#compute time-averaged 3d structure factor and save to sfname.npz
 
 
 dpl=np.load(sfname+".npz")					#load 3d SF
