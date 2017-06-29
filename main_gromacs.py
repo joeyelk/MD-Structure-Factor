@@ -100,10 +100,17 @@ EWdir=dir+"Ewald_Corrected"+fd
 if True:
 	print "Ewald plots"
 	p2d.path=EWdir
-	p2d.Plot_Ewald_Sphere_Correction(grid,1.54)		#compute Ewald-corrected SF cross sections in xy,xz,yz planes
-
+	#p2d.Plot_Ewald_Sphere_Correction(grid,1.54)		#compute Ewald-corrected SF cross sections in xy,xz,yz planes
+	theta=math.pi/3.0  
+	#theta=math.pi/2.0
+	ucell=np.array([[1,0,0],[np.cos(theta),np.sin(theta),0],[0,0,1]])
+	#print ucell.shape
+	#print ucell
+	#exit()
+	p2d.Plot_Ewald_triclinic(grid,1.54,ucell)		#compute Ewald-corrected SF cross sections in xy,xz,yz planes
+exit()	
 #xy,yz,xz planes of SF
-if True:
+if False:
 	print "xy,yz,xz plots"
 	p2d.path=dir+sfdir
 	p2d.sfplot(grid[grid.shape[0]/2,:,:,:])		#plot yz plane
@@ -112,7 +119,7 @@ if True:
 	p2d.radial_integrate(grid,300,dir+"radial.png")
 
 
-if True:  #additional slices through SF
+if False:  #additional slices through SF
 	print "additional plots"
 	Nsteps=8
 	p2d.path=sfsubdir+"xplots"+fd
