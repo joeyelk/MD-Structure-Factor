@@ -310,6 +310,122 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	
 	ES = RegularGridInterpolator((X, Y, Z), SF,bounds_error=False)		
 	
+	
+	#angle averaging
+	xyzpts=[]
+	print "xyz points"
+	for ix in trange(D.shape[0]):
+		#xsq=X[ix]**2.0
+		for iy in xrange(D.shape[1]):
+			#r=np.sqrt(Xsq+Y[iy]**2.0)
+			for iz in xrange(D.shape[2]):
+				xyzpts.append((X[ix],Y[iy],Z[iz]))
+	
+				#rzpts.append((X[ix]*np.cos(theta),Y[iy]*np.cos(theta),K_ES*(1.0-np.cos(theta))))
+				
+	xyzpts=np.asarray(xyzpts)
+	EWDxyz=ES(xyzpts)
+	#print rzpts.shape
+	
+	#EWDxyz=EWDxyz.reshape(xyzpts.shape[0]/D.shape[2],D.shape[2])
+	rpts=np.sqrt(xyzpts[:,0]**2.0+xyzpts[:,1]**2.0)
+	
+	# print rpts.shape
+	#print rpts.reshape(rpts.shape[0]).shape
+	
+	#rpts=np.reshape[rpts.shape[0]]
+	
+	
+	#print [xyzpts[i,0] ]
+	#for i in xrange(xyzpts.shape[0]):
+		#print xyzpts[i,0] 
+	#a=raw_input("input")
+	
+	
+	#print rpts
+	#a=raw_input("input")
+	#print xyzpts[:,2]
+	#a=raw_input("input")
+	Hcount,XEC,YEC=np.histogram2d(rpts,xyzpts[:,2],bins=(X,Z))
+	# for i in xrange(Hcount.shape[0]):
+		# print i,np.amax(Hcount[i,:])
+	# a=raw_input("input")
+	# for i in xrange(Hcount.shape[1]):
+		# print i,np.amax(Hcount[:,i])
+	#exit()
+	
+	# print Hcount
+	# print np.amax(Hcount)
+	#exit()
+	
+	
+	
+	
+	Hval,XEV,YEV=np.histogram2d(rpts,xyzpts[:,2],weights=EWDxyz,normed=True,bins=(X,Z))
+	# a=raw_input("hvalx")
+	# for i in xrange(Hval.shape[0]):
+		# print i,np.amax(Hval[i,:])
+	# a=raw_input("hvalz")
+	# for i in xrange(Hval.shape[1]):
+		# print i,np.amax(Hval[:,i])
+	
+	Hrz=Hval/Hcount
+	
+	#for ir in xrange(Hrz.shape[0]):
+	for ir in xrange(0,Hrz.shape[0]/2):
+		#Hrz[:,-iz+Hrz.shape[1]/2]=Hrz[:,iz+Hrz.shape[1]/2]
+		Hrz[-ir-1+Hrz.shape[0]/2,:]=Hrz[ir+1+Hrz.shape[0]/2,:]
+		#Hrz[ir+Hrz.shape[1]/2]=1.0
+	# print Hcount
+	# a=raw_input("input")
+	# print Hval
+	# a=raw_input("input")
+	# print Hrz
+	# exit()
+	#ax = plt.add_subplot(111, title='pcolormesh: actual edges',
+	#	aspect='equal')
+	
+	
+	exev=(XEV[1]-XEV[0])/0.5
+	eyev=(YEV[1]-YEV[0])/0.5
+	XMG, YMG = np.meshgrid(XEV+eyev, YEV+eyev)
+	# XMG, YMG = np.meshgrid(XEV, YEV)
+	
+	
+	#tst=np.where(YMG[:-1,:-1]>0.0,np.log(Hrz),0.0)
+	#plt.pcolormesh(XMG[:-1], YMG[:-1], np.log(Hrz))
+		
+	fig, ax = plt.subplots()
+	cax=ax.pcolormesh(XMG[:-1,:], YMG[:-1,:], Hrz.T,vmin=0.0,vmax=np.amax(Hrz))
+	#cbar = fig.colorbar(cax, ticks=[-1, 0, 1], orientation='horizontal')
+	cbar = fig.colorbar(cax)
+	plt.savefig(path+"rzplot"+format,dpi=DPI)
+	plt.clf()
+	
+	
+	
+	# fig, ax = plt.subplots()
+	# cax=ax.pcolormesh(XMG[:-1,:], YMG[:-1,:], np.log(Hrz.T))
+	#cbar = fig.colorbar(cax, ticks=[-1, 0, 1], orientation='horizontal')
+	# cbar = fig.colorbar(cax)
+	# plt.savefig(path+"rzplot_log"+format,dpi=DPI)
+	# plt.clf()
+	
+	
+	
+	
+	
+	
+	
+	# print Hcount.shape
+	# print "HC"
+	# exit()
+	
+	
+	# print EWDxyz.shape
+	exit()
+	
+	
 	xypts=[]
 	for ix in xrange(D.shape[0]):
 		xsq=X[ix]**2.0
