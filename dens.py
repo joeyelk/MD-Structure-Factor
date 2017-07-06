@@ -4,12 +4,12 @@ import math
 import mayavi.mlab as mlab
 import matplotlib.pyplot as plt
 import tqdm
-
+from tqdm import trange
 #number of gridpoints
 Nspatialgrid=128
 PRECISION=1.0E-12
 
-dtyp=np.float64   #float64 is default.  If there are memory issues, this can be reduced
+dtyp=np.float32   #float64 is default.  If there are memory issues, this can be reduced
 
 #returns a dictionary.  keys are atom symbols or types, and value is a list containing electron number and gaussian width
 # for example print a["Sn"][0:1] gives you number and width for tin
@@ -82,7 +82,7 @@ def get_dplot(dmag):  #convert array to full 3d plottable array
 	dplot[dplot.shape[0]/2,dplot.shape[1]/2,dplot.shape[2]/2]=1.0/3.0*(dplot[dplot.shape[0]/2+1,dplot.shape[1]/2,dplot.shape[2]/2]+dplot[dplot.shape[0]/2,dplot.shape[1]/2+1,dplot.shape[2]/2]+dplot[dplot.shape[0]/2,dplot.shape[1]/2,dplot.shape[2]/2+1])
 	return dplot[1:-1,1:-1,1:-1]
 
-def compute_sf(r,L,typ,out_filename,rad):  
+def compute_sf(r,L,typ,out_filename,rad,ucell):  
 #compute 3d structure factor.
 #arguments:
 #r= 			coordinates
@@ -90,31 +90,52 @@ def compute_sf(r,L,typ,out_filename,rad):
 #typ  			list of element types or names
 #out_filename 	output filename to store numpy array
 #rad: 			dictionary of atomic radii and numbers by type or element
+#ucell:         unit cell as a 3x3 numpy array
+
 
 	r,L,dr=rescale(r,L)  #keep this inside compute_fft to allow coordinates to be rescaled to whichever numpy view is passed
 	
 	zv=[0.0,0.0,0.0] #zero vector
-	
-	for it in xrange(r.shape[0]):  								#looped to save memory
-		r[it,...]=np.where(r[it,...]<L,r[it,...],r[it,...]-L)     								#get positions in periodic cell
-		r[it,...]=np.where(r[it,...]>zv,r[it,...],r[it,...]+L)
 
+	
+	BUFFSIZE=1000000
+	print "remapping coordinates into periodic cell"
+	#this must be done in case some atoms are outside the periodic cell (some MD programs save like this)
+	if r.shape[1]<BUFFSIZE:	
+		for it in xrange(r.shape[0]):  								#looped to save memory
+			r[it,...]=np.where(r[it,...]<L,r[it,...],r[it,...]-L)     								#get positions in periodic cell
+			r[it,...]=np.where(r[it,...]>zv,r[it,...],r[it,...]+L)
+	else:
+		# for ic in trange(3):	#buffered to further save memory
+			for it in trange(r.shape[0]):  								#looped to save memory
+				for imin in xrange(0,r.shape[0],BUFFSIZE):
+					imax=imin+BUFFSIZE
+					if imax>r.shape[0]:
+						imax=r.shape[0]
+					
+					r[it,imin:imax,:]=np.where(r[it,imin:imax,:]<L,r[it,imin:imax,:],r[it,imin:imax,:]-L)     								#get positions in periodic cell
+					r[it,imin:imax,:]=np.where(r[it,imin:imax,:]>zv,r[it,imin:imax,:],r[it,imin:imax,:]+L)
+
+
+	
 	bdict=get_borders(rad,dr,set(typ))															#dictionary of borders by atom type
 		
 	Nborder=int(np.amax(bdict.values())+1)														#maximum border required to account for atoms near periodic boundaries
 	
 	
-	try:
-		d0=np.zeros((Nspatialgrid+2*Nborder,Nspatialgrid+2*Nborder,Nspatialgrid+2*Nborder),dtype=dtyp)  		#density[x,y,z]
-	
-		sf=np.zeros((Nspatialgrid,Nspatialgrid,Nspatialgrid/2+1),dtype=dtyp)  								#3d Structure factor
-	
-	#spatial grid.  grid[x,y,z,0] gives x coordinate of this grid position.  4th index value of 3 will ultimately store SF data
-		grid=np.zeros((Nspatialgrid+2*Nborder,Nspatialgrid+2*Nborder,Nspatialgrid+2*Nborder,4),dtype=dtyp)		#if this causes a MemoryError for your system, consider changing dtyp from np.float64 to np.float32 or smaller
-	except:
-		print "Memory Allocation Error.  Please reduce dtyp in file dens.py and try again"
-		print "current dtyp=",dtyp
-		exit()
+#	try:
+	# print Nspatialgrid+2*Nborder,Nspatialgrid+2*Nborder,Nspatialgrid+2*Nborder
+	#exit()
+	d0=np.zeros((Nspatialgrid+2*Nborder,Nspatialgrid+2*Nborder,Nspatialgrid+2*Nborder),dtype=dtyp)  		#density[x,y,z]
+
+	sf=np.zeros((Nspatialgrid,Nspatialgrid,Nspatialgrid/2+1),dtype=dtyp)  								#3d Structure factor
+
+#spatial grid.  grid[x,y,z,0] gives x coordinate of this grid position.  4th index value of 3 will ultimately store SF data
+	grid=np.zeros((Nspatialgrid+2*Nborder,Nspatialgrid+2*Nborder,Nspatialgrid+2*Nborder,4),dtype=dtyp)		#if this causes a MemoryError for your system, consider changing dtyp from np.float64 to np.float32 or smaller
+	# except:
+		# print "Memory Allocation Error.  Please reduce dtyp in file dens.py and try again"
+		# print "current dtyp=",dtyp
+		# exit()
 		
 	
 	
@@ -150,7 +171,7 @@ def compute_sf(r,L,typ,out_filename,rad):
 			for im in tqdm.tqdm(xrange(r.shape[1]),unit='atoms'): #loop over atoms
 
 				ir=(r[it,im,:]/dr).astype(int)
-				
+	
 				Ax=np.int(bdict[typ[im]][0])
 				Ay=np.int(bdict[typ[im]][1])
 				Az=np.int(bdict[typ[im]][2])
@@ -163,12 +184,22 @@ def compute_sf(r,L,typ,out_filename,rad):
 				iz1=ir[2]+Az+Nborder
 				
 				buf=r[it,im,:]-grid[ix0:ix1,iy0:iy1,iz0:iz1,:3]
-				distSQ=buf[...,0]**2+buf[...,1]**2+buf[...,2]**2 
+				
+				#print "buf ",buf.shape
+				#exit()
+				#distSQ=buf[...,0]**2+buf[...,1]**2+buf[...,2]**2 
+				#distSQ=np.einsum('ijkl,ml->ijkm',buf,ucell)
+				buf2=np.einsum('ml,ijkm',ucell,buf)
+				distSQ=buf2[...,0]**2+buf2[...,1]**2+buf2[...,2]**2 
+				#print "done!"
+				#exit()
+				#distSQ=
+				
 				
 				sig=rad[typ[im]][1]	#width of gaussian
 				Nel=rad[typ[im]][0]	#electron number
 				
-				d0[ix0:ix1,iy0:iy1,iz0:iz1]+=(Nel/np.power(sig,3.))*np.exp(-distSQ / (2 * np.power(sig, 2.)))  #still need to mult by electron number
+				d0[ix0:ix1,iy0:iy1,iz0:iz1]+=(Nel/np.power(sig,3.))*np.exp(-distSQ / (2 * np.power(sig, 2.)))  
 				#print dr[0]*dr[1]*dr[2]*np.sum(d0)/np.power(2.0*math.pi,1.5)  #use this to verify normalization
 			
 			d1=remap_grid(d0,des1,ori1)			#remap density onto periodic cell

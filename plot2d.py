@@ -21,9 +21,52 @@ text="Structure Factor"
 savelog=True
 savelin=True
 
+normplot=1
+
 title_fontsize=9
 
 path=""
+
+
+def csplot_wlog(X,Y,Z,contours,lab,xlab,ylab,**kwargs):
+	csplot(X,Y,Z,contours,lab,xlab,ylab,**kwargs)
+	csplot(X,Y,np.log(Z),contours,"log_"+lab,xlab,ylab,**kwargs)
+
+
+def csplot(X,Y,Z,contours,lab,xlab,ylab,**kwargs):
+	
+	title=lab+" S("+xlab+","+ylab+")"
+	fname=lab+"_"+xlab+"_"+ylab
+	fig, ax = plt.subplots()
+	plt.suptitle(title)
+	plt.xlabel(xlab)
+	plt.ylabel(ylab)
+	
+	if normplot==1:
+		cax=plt.contourf(X,Y,Z/np.amax(Z),contours,vmin=0.0,vmax=1.0,**kwargs)
+	else:
+		cax=plt.contourf(X,Y,Z,contours,**kwargs)
+	
+
+	ax.set_aspect((np.amax(Y)-np.amin(Y))/(np.amax(X)-np.amin(X))-1)
+	# ax.set_aspect('auto')
+	#cbar = fig.colorbar(cax)
+	
+	plt.savefig(path+fname+format,dpi=DPI)
+	#print
+	#print "saving ",path+fname+format
+	#exit()
+	plt.clf()
+
+
+
+
+	#ax.pcolormesh(XMG[:-1,:], YMG[:-1,:], Hrz.T,vmin=0.0,vmax=np.amax(Hrz))
+	#cbar = fig.colorbar(cax, ticks=[-1, 0, 1], orientation='horizontal')
+	
+	#plt.savefig(path+"rzplot"+format,dpi=DPI)
+	#plt.clf()
+	
 
 
 		
@@ -275,7 +318,7 @@ def Plot_Ewald_Sphere_Correction(D,wavelength_angstroms,ucell=[],**kwargs):  #pa
 
 def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d data,SF,wavelength in angstroms
 	
-	print D.shape
+	# print D.shape
 
 	if not os.path.exists(path):
 		os.makedirs(path)
@@ -293,19 +336,27 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	b2=(np.cross(a3,a1))/(np.dot(a2,np.cross(a3,a1)))#*2.0*math.pi
 	b3=(np.cross(a1,a2))/(np.dot(a3,np.cross(a1,a2)))#*2.0*math.pi 
 	
+	#print b1,b2,b3
+	#exit()
 
 	Dnew=np.zeros_like(D)
 
 	
 	for ix in trange(D.shape[0]):			
-		Dnew[ix,:,:,0:3]+=X[ix]*b1
+		Dnew[ix,:,:,0:3]+=X[ix]*b1  #(X[ix]-X[X.shape[0]/2])*b1
+		# print ix,X[ix]*b1
+	# exit()
 	for iy in trange(D.shape[1]):			
-		Dnew[:,iy,:,0:3]+=Y[iy]*b2
+		Dnew[:,iy,:,0:3]+=Y[iy]*b2  #(Y[iy]-Y[Y.shape[0]/2])*b2
+		# print iy,Y[iy]*b2
+	# exit()
 	for iz in trange(D.shape[2]):			
-		Dnew[:,:,iz,0:3]+=Z[iz]*b3
+		Dnew[:,:,iz,0:3]+=Z[iz]*b3  #(Z[iz]-Z[Z.shape[0]/2])*b3
 	
 	D=Dnew
-	
+	# X =Dnew[:,0,0,0]
+	# Y =Dnew[0,:,0,1]
+	# Z =Dnew[0,0,:,2]
 	K_ES=2.0*math.pi/wavelength_angstroms  #calculate k for incident xrays in inverse angstroms
 	
 	ES = RegularGridInterpolator((X, Y, Z), SF,bounds_error=False)		
@@ -313,22 +364,31 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	
 	#angle averaging
 	xyzpts=[]
-	print "xyz points"
+	print "setting up points for radial integration"
 	for ix in trange(D.shape[0]):
 		#xsq=X[ix]**2.0
 		for iy in xrange(D.shape[1]):
 			#r=np.sqrt(Xsq+Y[iy]**2.0)
 			for iz in xrange(D.shape[2]):
-				xyzpts.append((X[ix],Y[iy],Z[iz]))
+				#xyzpts.append((X[ix],Y[iy],Z[iz]))
+				xyzpts.append((D[ix,iy,iz,0],D[ix,iy,iz,1],D[ix,iy,iz,2]))
 	
 				#rzpts.append((X[ix]*np.cos(theta),Y[iy]*np.cos(theta),K_ES*(1.0-np.cos(theta))))
 				
 	xyzpts=np.asarray(xyzpts)
 	EWDxyz=ES(xyzpts)
+	
+	
+	
 	#print rzpts.shape
 	
 	#EWDxyz=EWDxyz.reshape(xyzpts.shape[0]/D.shape[2],D.shape[2])
 	rpts=np.sqrt(xyzpts[:,0]**2.0+xyzpts[:,1]**2.0)
+	# for i in xrange(rpts.shape[0]):
+	
+		# print EWDxyz[i],rpts[i]
+	# exit()
+	
 	
 	# print rpts.shape
 	#print rpts.reshape(rpts.shape[0]).shape
@@ -390,19 +450,29 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	eyev=(YEV[1]-YEV[0])/0.5
 	XMG, YMG = np.meshgrid(XEV+eyev, YEV+eyev)
 	# XMG, YMG = np.meshgrid(XEV, YEV)
-	
-	
+	# print XMG
+	# print YMG
+	# exit()
 	#tst=np.where(YMG[:-1,:-1]>0.0,np.log(Hrz),0.0)
 	#plt.pcolormesh(XMG[:-1], YMG[:-1], np.log(Hrz))
-		
-	fig, ax = plt.subplots()
-	cax=ax.pcolormesh(XMG[:-1,:], YMG[:-1,:], Hrz.T,vmin=0.0,vmax=np.amax(Hrz))
+	
+	
+	#fig, ax = plt.subplots()
+	plt.pcolormesh(XMG[:-1,:], YMG[:-1,:], Hrz.T,vmin=0.0,vmax=np.amax(Hrz))
+
+	#plt.contourf(Hrz.T)
+	#plt.savefig(path+"rzplt2")
+	#exit()
+	
+	
+	#cax=ax.pcolormesh(XMG[:-1,:], YMG[:-1,:], Hrz.T)#,vmin=0.0)#,vmax=np.amax(Hrz))
+	#cax=ax.contourf(XMG[:-1,:-1], YMG[:-1,:-1], Hrz.T,**kwargs)
 	#cbar = fig.colorbar(cax, ticks=[-1, 0, 1], orientation='horizontal')
-	cbar = fig.colorbar(cax)
+	#cbar = fig.colorbar(cax)
 	plt.savefig(path+"rzplot"+format,dpi=DPI)
 	plt.clf()
 	
-	
+	#exit()
 	
 	# fig, ax = plt.subplots()
 	# cax=ax.pcolormesh(XMG[:-1,:], YMG[:-1,:], np.log(Hrz.T))
@@ -423,41 +493,68 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	
 	
 	# print EWDxyz.shape
-	exit()
+	#exit()
 	
 	
 	xypts=[]
+	xyflat=[]
 	for ix in xrange(D.shape[0]):
 		xsq=X[ix]**2.0
 		for iy in xrange(D.shape[1]):
 			theta=np.arctan(np.sqrt(xsq+Y[iy]**2.0)/K_ES)
 			xypts.append((X[ix]*np.cos(theta),Y[iy]*np.cos(theta),K_ES*(1.0-np.cos(theta))))
+			xyflat.append((X[ix],Y[iy],0.0))
 			
-	xzpts=[]
+			
+	xzpts =[]
+	xzflat=[]
 	for ix in xrange(D.shape[0]):
 		xsq=X[ix]**2.0
 		for iz in xrange(D.shape[2]):
 			theta=np.arctan(np.sqrt(xsq+Z[iz]**2.0)/K_ES)
 			xzpts.append((X[ix]*np.cos(theta),K_ES*(1.0-np.cos(theta)),Z[iz]*np.cos(theta)))
+			xzflat.append((X[ix],0.0,Z[iz]))
 	
 	yzpts=[]
+	yzflat=[]
 	for iy in xrange(D.shape[1]):
 		ysq=Y[iy]**2.0
 		for iz in xrange(D.shape[2]):
 			theta=np.arctan(np.sqrt(ysq+Z[iz]**2.0)/K_ES)
 			yzpts.append((K_ES*(1.0-np.cos(theta)),Y[iy]*np.cos(theta),Z[iz]*np.cos(theta)))
+			yzflat.append((0.0,Y[iy],Z[iz]))
+	
 	
 	xypts=np.asarray(xypts)
 	xzpts=np.asarray(xzpts)
 	yzpts=np.asarray(yzpts)
 	
+	xyflat=np.asarray(xyflat)
+	xzflat=np.asarray(xzflat)
+	yzflat=np.asarray(yzflat)
+	
+	
+	
 	EWDxy=ES(xypts)
 	EWDxz=ES(xzpts)
 	EWDyz=ES(yzpts)
 	
+	EWDxyflat=ES(xyflat)
+	EWDxzflat=ES(xzflat)
+	EWDyzflat=ES(yzflat)
+	
+	
+	
 	EWDxy=EWDxy.reshape(D.shape[0],D.shape[1])
 	EWDxz=EWDxz.reshape(D.shape[0],D.shape[2])
 	EWDyz=EWDyz.reshape(D.shape[1],D.shape[2])
+	
+	EWDxyflat=EWDxyflat.reshape(D.shape[0],D.shape[1])
+	EWDxzflat=EWDxzflat.reshape(D.shape[0],D.shape[2])
+	EWDyzflat=EWDyzflat.reshape(D.shape[1],D.shape[2])
+	
+	
+	
 	
 	title="Ewald Corrected Structure Factor \n $\lambda=$"+str(wavelength_angstroms)+" $\AA$   $k_{ew}=$"+str(round(K_ES,2))+" $\AA^{-1}$"
 	ltitle='log ' + title
@@ -474,6 +571,43 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	plt.contourf(D[:,:,0,0],D[:,:,0,1],EWDxy,contours,**kwargs)
 	plt.savefig(path+fname+"xy"+format,dpi=DPI)
 	plt.clf()
+
+	
+	Nx=D.shape[0]
+	Ny=D.shape[1]
+	Nz=D.shape[2]
+	
+	
+	lax=['x','y','z']
+	
+	ewlab="Ewald"
+	flab="Flat"
+	
+	iax1=0
+	iax2=1
+	csplot_wlog(D[:,:,Nz/2,iax1],D[:,:,Nz/2,iax2],EWDxy,    contours,ewlab,lax[iax1],lax[iax2],**kwargs)
+	csplot_wlog(D[:,:,Nz/2,iax1],D[:,:,Nz/2,iax2],EWDxyflat,contours,flab ,lax[iax1],lax[iax2],**kwargs)
+	
+	iax1=0
+	iax2=2
+	csplot_wlog(D[:,Ny/2,:,iax1],D[:,Ny/2,:,iax2],EWDxz,    contours,ewlab,lax[iax1],lax[iax2],**kwargs)
+	csplot_wlog(D[:,Ny/2,:,iax1],D[:,Ny/2,:,iax2],EWDxzflat,contours,flab ,lax[iax1],lax[iax2],**kwargs)
+	
+	iax1=1
+	iax2=2
+	csplot_wlog(D[Nx/2,:,:,iax1],D[Nx/2,:,:,iax2],EWDyz,    contours,ewlab,lax[iax1],lax[iax2],**kwargs)
+	csplot_wlog(D[Nx/2,:,:,iax1],D[Nx/2,:,:,iax2],EWDyzflat,contours,flab ,lax[iax1],lax[iax2],**kwargs)
+	
+	
+	
+	
+	#csplot(D[:,:,0,0],D[:,0,:,2],EWDxy,contours,"Ewald","x","z",**kwargs)
+	
+	
+	
+	exit()
+	#csplot(X,Y,Z,contours,xlab,ylab,**kwargs):
+	
 	
 	plt.suptitle(ltitle)
 	plt.xlabel(xlab)
@@ -511,3 +645,57 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	plt.clf()
 	
 
+	
+	title="Flat Structure Factor \n $\lambda=$"+str(wavelength_angstroms)+" $\AA$   $k_{ew}=$"+str(round(K_ES,2))+" $\AA^{-1}$"
+	ltitle='log ' + title
+	
+	xlab='x ('+units + ")"
+	ylab='y ('+units + ")"
+	zlab='z ('+units + ")"
+	
+	fname="Flat_"	
+	
+	plt.suptitle(title)
+	plt.xlabel(xlab)
+	plt.ylabel(ylab)
+	plt.contourf(D[:,:,0,0],D[:,:,0,1],EWDxyflat,contours,**kwargs)
+	plt.savefig(path+fname+"xy"+format,dpi=DPI)
+	plt.clf()
+	
+	plt.suptitle(ltitle)
+	plt.xlabel(xlab)
+	plt.ylabel(ylab)
+	plt.contourf(D[:,:,0,0],D[:,:,0,1],np.log(EWDxyflat),contours,**kwargs)
+	plt.savefig(path+fname+"xylog"+format,dpi=DPI)
+	plt.clf()
+	
+	plt.suptitle(title)
+	plt.xlabel(xlab)
+	plt.ylabel(zlab)
+	plt.contourf(D[:,0,:,0],D[:,0,:,2],EWDxzflat,contours,**kwargs)
+	plt.savefig(path+fname+"xz"+format,dpi=DPI)
+	plt.clf()
+	
+	plt.suptitle(ltitle)
+	plt.xlabel(xlab)
+	plt.ylabel(zlab)
+	plt.contourf(D[:,0,:,0],D[:,0,:,2],np.log(EWDxzflat),contours,**kwargs)
+	plt.savefig(path+fname+"xzlog"+format,dpi=DPI)
+	plt.clf()
+	
+	plt.suptitle(title)
+	plt.xlabel(ylab)
+	plt.ylabel(zlab)
+	plt.contourf(D[0,:,:,1],D[0,:,:,2],EWDyzflat,contours,**kwargs)
+	plt.savefig(path+fname+"yz"+format,dpi=DPI)
+	plt.clf()
+	
+	plt.suptitle(ltitle)
+	plt.xlabel(ylab)
+	plt.ylabel(zlab)
+	plt.contourf(D[0,:,:,1],D[0,:,:,2],np.log(EWDyzflat),contours,**kwargs)
+	plt.savefig(path+fname+"yzlog"+format,dpi=DPI)
+	plt.clf()
+	
+	
+	

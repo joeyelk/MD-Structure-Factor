@@ -10,6 +10,7 @@ import dens
 import plot2d as p2d  
 
 import tqdm  #progress bar
+from tqdm import trange
 
 import platform
 import matplotlib.pyplot as plt  #must be imported after anything that imports mayavi/mlab
@@ -24,7 +25,15 @@ parser.add_argument('-top', '--topology', default='', type=str, help='Input topo
 parser.add_argument('-traj', '--trajectory', default='', type=str, help='Input trajectory filename')
 parser.add_argument('-fi', '--first_frame', default=0, type=int, help='frame to start at')
 parser.add_argument('-fr', '--force_recompute', default=0, type=int, help='force recomputing SF (if >=1) or trajectory and SF(if >=2)')
+
+parser.add_argument('-RC', '--random', default=0, type=int, help='set this to specify number of random particles to use')
+
+
 #parser.add_argument('-o', '--output', default='', type=str, help='override output basename')
+
+theta=math.pi/3.0  
+#theta=math.pi/2.0
+ucell=np.array([[1,0,0],[np.cos(theta),np.sin(theta),0],[0,0,1]])
 
 
 args=parser.parse_args()
@@ -37,6 +46,7 @@ else:
 	top_file=args.topology
 	traj_file=args.trajectory
 	basename=args.topology.rsplit('.', 1)[0]
+
 
 #if len(args.output)>0:
 #	basename=args.output
@@ -58,22 +68,61 @@ tfname=label+"_traj"
 sfname=label+"_sf"
 
 dens.Nspatialgrid=128
+#dens.Nspatialgrid=64
+#dens.Nspatialgrid=180
 
 
-if args.force_recompute>0 or not os.path.isfile(sfname+".npz"):					#check to see if SF needs to be calculated
-	if args.force_recompute>1 or not os.path.isfile(tfname+".npz"):  				#check to see if trajectory needs to be processed
-		if platform.system()=="Windows":
-			print "Unable to process trajectory file on Windows"
-			exit()
-		else:
-			print "processing trajectory file "+traj_file
-			lt.process_gro(top_file,traj_file,tfname)   					#Process trajectory into numpy array.  
-			print 'done'
-			
-	traj=np.load(tfname+".npz")							#load processed trajectory
+if args.random>0:
+	spcheck=0  #check if simulating a single particle.  
+	print "generating random trajectory..."
+	Rsteps=1
+	Ratoms=args.random #100000#0
+	if Ratoms==1:
+		Ratoms=2
+		spcheck=1
+	Rboxsize=100.0
+	BUFFsize=10000000
+	
+	dims=np.ones((Rsteps,3))*Rboxsize
+	coords=np.random.random((Rsteps,Ratoms,3))*dims[0,:]
+	
+	if spcheck==1:
+		coords[0,1,:]=coords[0,0,:]   #reposition second atom onto first.  The need for this (probably) comes from certain dimensions having a size of 1
+	
+	
+	name=np.zeros(Ratoms,dtype=object)
+	mass=np.zeros(Ratoms)
+	typ=np.zeros(Ratoms,dtype=object)
+	for it in xrange(Ratoms):
+		typ[it]="R3"
+	
+	
+	sfname='RND'
+	print "saving..."
+	np.savez_compressed("RAND",dims=dims,coords=coords,name=name,typ=typ)
 	rad=dens.load_radii("radii.txt")					#load radii definitions from file
+	print "computing SF..."
+	dens.compute_sf(coords,dims,typ,sfname,rad,ucell)		#compute time-averaged 3d structure factor and save to sfname.npz
 
-	dens.compute_sf(traj['coords'][args.first_frame:,...],traj['dims'][args.first_frame:,...],traj['typ'],sfname,rad)		#compute time-averaged 3d structure factor and save to sfname.npz
+
+
+
+else:
+
+	if args.force_recompute>0 or not os.path.isfile(sfname+".npz"):					#check to see if SF needs to be calculated
+		if args.force_recompute>1 or not os.path.isfile(tfname+".npz"):  				#check to see if trajectory needs to be processed
+			if platform.system()=="Windows":
+				print "Unable to process trajectory file on Windows"
+				exit()
+			else:
+				print "processing trajectory file "+traj_file
+				lt.process_gro(top_file,traj_file,tfname)   					#Process trajectory into numpy array.  
+				print 'done'
+				
+		traj=np.load(tfname+".npz")							#load processed trajectory
+		rad=dens.load_radii("radii.txt")					#load radii definitions from file
+
+		dens.compute_sf(traj['coords'][args.first_frame:,...],traj['dims'][args.first_frame:,...],traj['typ'],sfname,rad)		#compute time-averaged 3d structure factor and save to sfname.npz
 
 
 dpl=np.load(sfname+".npz")					#load 3d SF
@@ -101,15 +150,13 @@ if True:
 	print "Ewald plots"
 	p2d.path=EWdir
 	#p2d.Plot_Ewald_Sphere_Correction(grid,1.54)		#compute Ewald-corrected SF cross sections in xy,xz,yz planes
-	theta=math.pi/3.0  
-	#theta=math.pi/2.0
-	ucell=np.array([[1,0,0],[np.cos(theta),np.sin(theta),0],[0,0,1]])
+	
 	#print ucell.shape
 	#print ucell
 	#exit()
 	p2d.Plot_Ewald_triclinic(grid,1.54,ucell)		#compute Ewald-corrected SF cross sections in xy,xz,yz planes
-exit()	
-#xy,yz,xz planes of SF
+	
+	#xy,yz,xz planes of SF
 if False:
 	print "xy,yz,xz plots"
 	p2d.path=dir+sfdir
