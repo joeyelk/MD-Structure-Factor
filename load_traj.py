@@ -1,13 +1,16 @@
-import MDAnalysis
+#! /usr/bin/env python
+
+from __future__ import print_function
 import numpy as np
 import tqdm
+import mdtraj as md
 
 """ process trajectory and topology file and store in output file as np array """
 
 
 def process(topology_filename, trajectory_filename, output_filename):
 
-    print "processing ", trajectory_filename
+    print("processing ", trajectory_filename)
     u = MDAnalysis.Universe(topology_filename, trajectory_filename)
 
     dims = np.zeros((len(u.trajectory), 3))
@@ -31,17 +34,17 @@ def process(topology_filename, trajectory_filename, output_filename):
         coords[it, :, :] = ts.positions
         it += 1
 
-    print "saving ", output_filename
+    print("saving ", output_filename)
 
     #print typ
     np.savez_compressed(output_filename, dims=dims, coords=coords, name=name, mass=mass, typ=typ, charge=charge)
 
-    print 'done saving'
+    print('done saving')
 
 
-def process_gro(topology_filename,trajectory_filename,output_filename):
+def process_gro(topology_filename, trajectory_filename, output_filename):
 
-    print "processing ", trajectory_filename
+    print("processing ", trajectory_filename)
     u = MDAnalysis.Universe(topology_filename, trajectory_filename)
 
     dims = np.zeros((len(u.trajectory), 3))
@@ -63,10 +66,28 @@ def process_gro(topology_filename,trajectory_filename,output_filename):
         coords[it, :, :] = ts.positions
         it += 1
 
-    print "saving ", output_filename
+    print("saving ", output_filename)
 
     # print typ
     np.savez_compressed(output_filename, dims=dims, coords=coords, name=name, mass=mass, typ=typ)
-    print 'done saving'
+    print('done saving')
 
 # process("W11_large.psf","DH5_423_0.dcd","o2")
+
+
+def process_gro_mdtraj(topology_filename, trajectory_filename, output_filename):
+
+    print("processing ", trajectory_filename)
+
+    t = md.load(trajectory_filename, top=topology_filename)
+    coords = t.xyz * 10  # convert to angstroms
+    dims = t.unitcell_lengths * 10
+
+    name = np.array([a.name for a in t.topology.atoms])
+    mass = np.array([a.element.mass for a in t.topology.atoms])
+    typ = np.array([a.element.symbol for a in t.topology.atoms])
+
+    print("saving ", output_filename)
+
+    np.savez_compressed(output_filename, dims=dims, coords=coords, name=name, mass=mass, typ=typ)
+    print('done saving')

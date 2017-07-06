@@ -1,11 +1,14 @@
 #! /usr/bin/env python
 
+from __future__ import division
+from __future__ import print_function
+from builtins import range
+# from past.utils import old_div
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 import math
 import os.path
-import load_traj as lt
-import dens                
+import dens2
 import plot2d as p2d
 import tqdm  # progress bar
 import platform
@@ -39,11 +42,12 @@ else:
 # if len(args.output)>0:
 # 	basename=args.output
 
-print "running on", platform.system(), platform.release(), platform.version()
+print("running on", platform.system(), platform.release(), platform.version())
 
 if platform.system() == "Windows":  # path separators
     fd = "\\"
 else:
+    import load_traj as lt
     fd = "/"
 
 label = "out_"+basename
@@ -51,17 +55,17 @@ label = "out_"+basename
 tfname = label+"_traj"
 sfname = label+"_sf"
 
-dens.Nspatialgrid = 128
+dens2.Nspatialgrid = 128
 
 if args.force_recompute > 0 or not os.path.isfile(sfname+".npz"):						# check to see if SF needs to be calculated
     if args.force_recompute > 1 or not os.path.isfile(tfname+".npz"):  				# check to see if trajectory needs to be processed
-        print "processing trajectory file "+traj_file
-        lt.process_gro(top_file, traj_file, tfname)  # Process trajectory into numpy array.  Commented to run on windows
-        print 'done'
+        print("processing trajectory file "+traj_file)
+        lt.process_gro_mdtraj(top_file, traj_file, tfname)  # Process trajectory into numpy array.  Commented to run on windows
+        print('done')
     traj = np.load(tfname+".npz")							# load processed trajectory
-    rad = dens.load_radii("%s/radii.txt" % location)					# load radii definitions from file stored in git repo
+    rad = dens2.load_radii("%s/radii.txt" % location)					# load radii definitions from file stored in git repo
 
-    dens.compute_sf(traj['coords'][args.first_frame:,...],traj['dims'],traj['typ'],sfname,rad)	 # compute time-averaged 3d structure factor and save to sfname.npz
+    dens2.compute_sf(traj['coords'][args.first_frame:,...],traj['dims'],traj['typ'],sfname,rad)	 # compute time-averaged 3d structure factor and save to sfname.npz
 
 dpl = np.load(sfname+".npz")  # load 3d SF
 grid = dpl['kgridplt']
@@ -74,10 +78,13 @@ sfsubdir = sfdir+"additional_plots"+fd
 EWdir = dir+"Ewald_Corrected"+fd
 
 if True:
-    print "Ewald plots"
+    print("Ewald plots")
     p2d.path = EWdir
     p2d.Plot_Ewald_Sphere_Correction(grid, 1.54, args.cscale, args.lcscale)		# compute Ewald-corrected SF cross sections in xy,xz,yz planes
-
+    theta = math.pi / 3.0
+    ucell = np.array([[1, 0, 0], [np.cos(theta), np.sin(theta), 0], [0, 0, 1]])
+    p2d.Plot_Ewald_triclinic(grid, 1.54, ucell)
+exit()
 # xy,yz,xz planes of SF
 if True:
     # print "xy,yz,xz plots"
@@ -88,17 +95,17 @@ if True:
     p2d.radial_integrate(grid, 300, dir + "radial.png")
 exit()
 if True:  # additional slices through SF
-    print "additional plots"
+    print("additional plots")
     Nsteps = 8
     p2d.path = sfsubdir+"xplots"+fd
     p2d.savelin = False
-    for i in tqdm.tqdm(xrange(0, grid.shape[0], grid.shape[0]/Nsteps)):
+    for i in tqdm.tqdm(range(0, grid.shape[0], old_div(grid.shape[0],Nsteps))):
         p2d.sfplot(grid[i, :, :, :], args.lcscale)
 
     p2d.path = sfsubdir+"yplots"+fd
-    for i in tqdm.tqdm(xrange(0, grid.shape[1], grid.shape[1]/Nsteps)):
+    for i in tqdm.tqdm(range(0, grid.shape[1], old_div(grid.shape[1],Nsteps))):
         p2d.sfplot(grid[:, i, :, :], args.lcscale)
 
     p2d.path = sfsubdir+"zplots"+fd
-    for i in tqdm.tqdm(xrange(0, grid.shape[1], grid.shape[2]/Nsteps)):
+    for i in tqdm.tqdm(range(0, grid.shape[1], old_div(grid.shape[2],Nsteps))):
         p2d.sfplot(grid[:, :, i, :], args.lcscale)

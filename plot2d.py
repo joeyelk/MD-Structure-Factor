@@ -1,8 +1,14 @@
+from __future__ import division
+from __future__ import print_function
+from builtins import str
+from builtins import range
+from past.utils import old_div
 import numpy as np
 import matplotlib.pyplot as plt
 import os
 from scipy.interpolate import RegularGridInterpolator
 import math
+from tqdm import trange
 
 mainlabel = ""
 
@@ -36,7 +42,7 @@ def sfplot(data, lcscale, **kwargs):
     lb = 0
 
     an = ['x', 'y', 'z']  # axes names
-    for i in xrange(data.shape[2] - 1):
+    for i in range(data.shape[2] - 1):
         if np.unique(data[..., i]).size > 1:
             la.append(i)
         else:
@@ -103,11 +109,11 @@ def Plot_Ewald_Sphere_Correction_old(D,wavelength_angstroms):
     ES = RegularGridInterpolator((X, Y, Z), SF)
 
     pts = []
-    for ix in xrange(D.shape[0]):
+    for ix in range(D.shape[0]):
         xsq = X[ix]**2.0
-        for iy in xrange(D.shape[1]):
+        for iy in range(D.shape[1]):
             R = np.sqrt(xsq+Y[iy]**2.0)
-            theta = np.arctan(R/K_ES)
+            theta = np.arctan(old_div(R,K_ES))
             xnew = X[ix]*np.cos(theta)
             ynew = Y[iy]*np.cos(theta)
             znew = K_ES*(1.0-np.cos(theta))
@@ -146,24 +152,24 @@ def Plot_Ewald_Sphere_Correction(D, wavelength_angstroms, cscale=1, lcscale=1, *
     ES = RegularGridInterpolator((X, Y, Z), SF, bounds_error=False)
 
     xypts = []
-    for ix in xrange(D.shape[0]):
+    for ix in range(D.shape[0]):
         xsq = X[ix]**2.0
-        for iy in xrange(D.shape[1]):
-            theta = np.arctan(np.sqrt(xsq + Y[iy]**2.0)/K_ES)
+        for iy in range(D.shape[1]):
+            theta = np.arctan(old_div(np.sqrt(xsq + Y[iy]**2.0),K_ES))
             xypts.append((X[ix]*np.cos(theta), Y[iy]*np.cos(theta), K_ES*(1.0 - np.cos(theta))))
 
     xzpts=[]
-    for ix in xrange(D.shape[0]):
+    for ix in range(D.shape[0]):
         xsq = X[ix]**2.0
-        for iz in xrange(D.shape[2]):
-            theta = np.arctan(np.sqrt(xsq + Z[iz]**2.0)/K_ES)
+        for iz in range(D.shape[2]):
+            theta = np.arctan(old_div(np.sqrt(xsq + Z[iz]**2.0),K_ES))
             xzpts.append((X[ix]*np.cos(theta), K_ES*(1.0-np.cos(theta)), Z[iz]*np.cos(theta)))
 
     yzpts = []
-    for iy in xrange(D.shape[1]):
+    for iy in range(D.shape[1]):
         ysq = Y[iy]**2.0
-        for iz in xrange(D.shape[2]):
-            theta = np.arctan(np.sqrt(ysq+Z[iz]**2.0)/K_ES)
+        for iz in range(D.shape[2]):
+            theta = np.arctan(old_div(np.sqrt(ysq+Z[iz]**2.0),K_ES))
             yzpts.append((K_ES*(1.0-np.cos(theta)), Y[iy]*np.cos(theta), Z[iz]*np.cos(theta)))
 
     xypts = np.asarray(xypts)
@@ -246,3 +252,159 @@ def Plot_Ewald_Sphere_Correction(D, wavelength_angstroms, cscale=1, lcscale=1, *
     # plt.ylim([-2.5, 2.5])
     plt.savefig(path + fname + "yzlog" + format, dpi=DPI)
     plt.clf()
+
+
+def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, **kwargs):  #pass full 3d data,SF,wavelength in angstroms
+
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    X = D[:, 0, 0, 0]
+    Y = D[0, :, 0, 1]
+    Z = D[0, 0, :, 2]
+    SF = D[:, :, :, 3]
+
+    a1 = ucell[0]
+    a2 = ucell[1]
+    a3 = ucell[2]
+
+    b1 = old_div((np.cross(a2,a3)),(np.dot(a1,np.cross(a2,a3))))
+    b2 = old_div((np.cross(a3,a1)),(np.dot(a2,np.cross(a3,a1))))
+    b3 = old_div((np.cross(a1,a2)),(np.dot(a3,np.cross(a1,a2))))
+
+    Dnew = np.zeros_like(D)
+
+    for ix in trange(D.shape[0]):
+        Dnew[ix, :, :, 0:3] += X[ix]*b1
+    for iy in trange(D.shape[1]):
+        Dnew[:, iy, :, 0:3] += Y[iy]*b2
+    for iz in trange(D.shape[2]):
+        Dnew[:, :, iz, 0:3] += Z[iz]*b3
+
+    D = Dnew
+
+    K_ES = 2.0*math.pi/wavelength_angstroms  #calculate k for incident xrays in inverse angstroms
+
+    ES = RegularGridInterpolator((X, Y, Z), SF, bounds_error=False)
+
+    #angle averaging
+    xyzpts = []
+    print("xyz points")
+    for ix in trange(D.shape[0]):
+        for iy in range(D.shape[1]):
+            for iz in range(D.shape[2]):
+                xyzpts.append((X[ix],Y[iy],Z[iz]))
+
+    xyzpts = np.asarray(xyzpts)
+    EWDxyz = ES(xyzpts)
+
+    rpts = np.sqrt(xyzpts[:, 0]**2.0 + xyzpts[:, 1]**2.0)
+
+    Hcount, XEC, YEC = np.histogram2d(rpts,xyzpts[:,2], bins=(X,Z))
+
+    Hval, XEV, YEV = np.histogram2d(rpts, xyzpts[:, 2], weights=EWDxyz, normed=True, bins=(X,Z))
+    print(Hcount)
+    print(np.amin(Hcount))
+    exit()
+    Hrz=Hval/Hcount
+
+
+    for ir in range(old_div(Hrz.shape[0],2)):
+        Hrz[-ir - 1 + old_div(Hrz.shape[0],2), :] = Hrz[ir + 1 + old_div(Hrz.shape[0],2), :]
+
+    exev = old_div((XEV[1] - XEV[0]),0.5)
+    eyev = old_div((YEV[1] - YEV[0]),0.5)
+    XMG, YMG = np.meshgrid(XEV+eyev, YEV+eyev)
+
+    fig, ax = plt.subplots()
+    cax=ax.pcolormesh(XMG[:-1,:], YMG[:-1,:], Hrz.T,vmin=0.0,vmax=np.amax(Hrz))
+    cbar = fig.colorbar(cax)
+    plt.savefig(path+"rzplot"+format,dpi=DPI)
+    plt.clf()
+
+    exit()
+
+
+    # xypts=[]
+    # for ix in xrange(D.shape[0]):
+		# xsq=X[ix]**2.0
+		# for iy in xrange(D.shape[1]):
+		# 	theta=np.arctan(np.sqrt(xsq+Y[iy]**2.0)/K_ES)
+		# 	xypts.append((X[ix]*np.cos(theta),Y[iy]*np.cos(theta),K_ES*(1.0-np.cos(theta))))
+    #
+    # xzpts=[]
+    # for ix in xrange(D.shape[0]):
+		# xsq=X[ix]**2.0
+		# for iz in xrange(D.shape[2]):
+		# 	theta=np.arctan(np.sqrt(xsq+Z[iz]**2.0)/K_ES)
+		# 	xzpts.append((X[ix]*np.cos(theta),K_ES*(1.0-np.cos(theta)),Z[iz]*np.cos(theta)))
+    #
+    # yzpts=[]
+    # for iy in xrange(D.shape[1]):
+		# ysq=Y[iy]**2.0
+		# for iz in xrange(D.shape[2]):
+		# 	theta=np.arctan(np.sqrt(ysq+Z[iz]**2.0)/K_ES)
+		# 	yzpts.append((K_ES*(1.0-np.cos(theta)),Y[iy]*np.cos(theta),Z[iz]*np.cos(theta)))
+    #
+    # xypts=np.asarray(xypts)
+    # xzpts=np.asarray(xzpts)
+    # yzpts=np.asarray(yzpts)
+    #
+    # EWDxy=ES(xypts)
+    # EWDxz=ES(xzpts)
+    # EWDyz=ES(yzpts)
+    #
+    # EWDxy=EWDxy.reshape(D.shape[0],D.shape[1])
+    # EWDxz=EWDxz.reshape(D.shape[0],D.shape[2])
+    # EWDyz=EWDyz.reshape(D.shape[1],D.shape[2])
+    #
+    # title="Ewald Corrected Structure Factor \n $\lambda=$"+str(wavelength_angstroms)+" $\AA$   $k_{ew}=$"+str(round(K_ES,2))+" $\AA^{-1}$"
+    # ltitle='log ' + title
+    #
+    # xlab='x ('+units + ")"
+    # ylab='y ('+units + ")"
+    # zlab='z ('+units + ")"
+    #
+    # fname="Ewald_"
+    #
+    # plt.suptitle(title)
+    # plt.xlabel(xlab)
+    # plt.ylabel(ylab)
+    # plt.contourf(D[:,:,0,0],D[:,:,0,1],EWDxy,contours,**kwargs)
+    # plt.savefig(path+fname+"xy"+format,dpi=DPI)
+    # plt.clf()
+    #
+    # plt.suptitle(ltitle)
+    # plt.xlabel(xlab)
+    # plt.ylabel(ylab)
+    # plt.contourf(D[:,:,0,0],D[:,:,0,1],np.log(EWDxy),contours,**kwargs)
+    # plt.savefig(path+fname+"xylog"+format,dpi=DPI)
+    # plt.clf()
+    #
+    # plt.suptitle(title)
+    # plt.xlabel(xlab)
+    # plt.ylabel(zlab)
+    # plt.contourf(D[:,0,:,0],D[:,0,:,2],EWDxz,contours,**kwargs)
+    # plt.savefig(path+fname+"xz"+format,dpi=DPI)
+    # plt.clf()
+    #
+    # plt.suptitle(ltitle)
+    # plt.xlabel(xlab)
+    # plt.ylabel(zlab)
+    # plt.contourf(D[:,0,:,0],D[:,0,:,2],np.log(EWDxz),contours,**kwargs)
+    # plt.savefig(path+fname+"xzlog"+format,dpi=DPI)
+    # plt.clf()
+    #
+    # plt.suptitle(title)
+    # plt.xlabel(ylab)
+    # plt.ylabel(zlab)
+    # plt.contourf(D[0,:,:,1],D[0,:,:,2],EWDyz,contours,**kwargs)
+    # plt.savefig(path+fname+"yz"+format,dpi=DPI)
+    # plt.clf()
+    #
+    # plt.suptitle(ltitle)
+    # plt.xlabel(ylab)
+    # plt.ylabel(zlab)
+    # plt.contourf(D[0,:,:,1],D[0,:,:,2],np.log(EWDyz),contours,**kwargs)
+    # plt.savefig(path+fname+"yzlog"+format,dpi=DPI)
+    # plt.clf()
