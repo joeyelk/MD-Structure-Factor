@@ -430,6 +430,7 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 		# print i,np.amax(Hval[:,i])
 	
 	Hrz=Hval/Hcount
+	Hrz = np.ma.masked_invalid(Hrz)
 	
 	#for ir in xrange(Hrz.shape[0]):
 	for ir in xrange(0,Hrz.shape[0]/2):
@@ -448,7 +449,7 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	
 	exev=(XEV[1]-XEV[0])/0.5
 	eyev=(YEV[1]-YEV[0])/0.5
-	XMG, YMG = np.meshgrid(XEV+eyev, YEV+eyev)
+	XMG, YMG = np.meshgrid(XEV+exev, YEV+eyev)
 	# XMG, YMG = np.meshgrid(XEV, YEV)
 	# print XMG
 	# print YMG
