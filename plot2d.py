@@ -18,6 +18,9 @@ DPI=300
 format=".png"
 text="Structure Factor"
 
+
+
+PLOT_EWALDS=False
 savelog=True
 savelin=True
 
@@ -48,7 +51,7 @@ def csplot(X,Y,Z,contours,lab,xlab,ylab,**kwargs):
 		cax=plt.contourf(X,Y,Z,contours,**kwargs)
 	
 
-	ax.set_aspect((np.amax(Y)-np.amin(Y))/(np.amax(X)-np.amin(X))-1)
+	#ax.set_aspect((np.amax(Y)-np.amin(Y))/(np.amax(X)-np.amin(X)))
 	# ax.set_aspect('auto')
 	#cbar = fig.colorbar(cax)
 	
@@ -365,6 +368,7 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	#angle averaging
 	xyzpts=[]
 	print "setting up points for radial integration"
+	#There's a better/faster way of doing this, but it doesn't take too much time as-is
 	for ix in trange(D.shape[0]):
 		#xsq=X[ix]**2.0
 		for iy in xrange(D.shape[1]):
@@ -525,7 +529,6 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 			yzpts.append((K_ES*(1.0-np.cos(theta)),Y[iy]*np.cos(theta),Z[iz]*np.cos(theta)))
 			yzflat.append((0.0,Y[iy],Z[iz]))
 	
-	
 	xypts=np.asarray(xypts)
 	xzpts=np.asarray(xzpts)
 	yzpts=np.asarray(yzpts)
@@ -586,17 +589,22 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	
 	iax1=0
 	iax2=1
-	csplot_wlog(D[:,:,Nz/2,iax1],D[:,:,Nz/2,iax2],EWDxy,    contours,ewlab,lax[iax1],lax[iax2],**kwargs)
+	
+	
+	if PLOT_EWALDS:
+		csplot_wlog(D[:,:,Nz/2,iax1],D[:,:,Nz/2,iax2],EWDxy,    contours,ewlab,lax[iax1],lax[iax2],**kwargs)
 	csplot_wlog(D[:,:,Nz/2,iax1],D[:,:,Nz/2,iax2],EWDxyflat,contours,flab ,lax[iax1],lax[iax2],**kwargs)
 	
 	iax1=0
 	iax2=2
-	csplot_wlog(D[:,Ny/2,:,iax1],D[:,Ny/2,:,iax2],EWDxz,    contours,ewlab,lax[iax1],lax[iax2],**kwargs)
+	if PLOT_EWALDS:
+		csplot_wlog(D[:,Ny/2,:,iax1],D[:,Ny/2,:,iax2],EWDxz,    contours,ewlab,lax[iax1],lax[iax2],**kwargs)
 	csplot_wlog(D[:,Ny/2,:,iax1],D[:,Ny/2,:,iax2],EWDxzflat,contours,flab ,lax[iax1],lax[iax2],**kwargs)
 	
 	iax1=1
 	iax2=2
-	csplot_wlog(D[Nx/2,:,:,iax1],D[Nx/2,:,:,iax2],EWDyz,    contours,ewlab,lax[iax1],lax[iax2],**kwargs)
+	if PLOT_EWALDS:
+		csplot_wlog(D[Nx/2,:,:,iax1],D[Nx/2,:,:,iax2],EWDyz,    contours,ewlab,lax[iax1],lax[iax2],**kwargs)
 	csplot_wlog(D[Nx/2,:,:,iax1],D[Nx/2,:,:,iax2],EWDyzflat,contours,flab ,lax[iax1],lax[iax2],**kwargs)
 	
 	
