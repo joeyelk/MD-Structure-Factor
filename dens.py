@@ -210,7 +210,14 @@ def compute_sf(r,L,typ,out_filename,rad,ucell):
 			dmag=np.real(np.multiply(dmag,dfft,out=dmag))	#compute magnitude of complex structure factor
 			
 			sf+=dmag										#add to time-averaged structure factor
-
+			
+			
+			d1*=0.0   
+			d0*=0.0
+			
+			# plt.contourf(sf[:,:,sf.shape[2]/2])
+			# plt.show()
+			# plt.clf()
 						
 	
 	sfplt=get_dplot(sf)

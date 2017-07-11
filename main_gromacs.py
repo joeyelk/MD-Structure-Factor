@@ -5,7 +5,6 @@ from scipy.interpolate import RegularGridInterpolator
 import math
 import os.path
 
-
 import dens                
 import plot2d as p2d  
 
@@ -17,21 +16,39 @@ import matplotlib.pyplot as plt  #must be imported after anything that imports m
 
 import argparse
 
+XRAY_WAVELENGTH=1.54
+
 
 parser = argparse.ArgumentParser(description='Calculate 3d Structure Factor')
-
+#File names
 parser.add_argument('-i', '--input', default='', type=str, help='Input topolgy and trajectory basename')
 parser.add_argument('-top', '--topology', default='', type=str, help='Input topolgy filename')
 parser.add_argument('-traj', '--trajectory', default='', type=str, help='Input trajectory filename')
+#parser.add_argument('-o', '--output', default='', type=str, help='override output basename')  #there are issues with using this, so it is disabled for now
+
+#other simulation parameters
 parser.add_argument('-fi', '--first_frame', default=0, type=int, help='frame to start at')
 parser.add_argument('-fr', '--force_recompute', default=0, type=int, help='force recomputing SF (if >=1) or trajectory and SF(if >=2)')
 
-parser.add_argument('-RC', '--random', default=0, type=int, help='set this to specify number of random particles to use')
+#random trajectory parameters
+parser.add_argument('-RC', '--random_counts', default=0, type=int, help='set this to specify number of random particles to use')
+parser.add_argument('-RT', '--random_timesteps', default=1, type=int, help='set this to specify number of random timesteps to use')
+parser.add_argument('-RL', '--random_label', default="R3", type=str, help='set this to specify the element type of the random particle')
+
+#parser.add_argument('-HL', '--hex_label', default="R3", type=string, help='set this to specify the element type of the hexagonal lattice')
 
 
-#parser.add_argument('-o', '--output', default='', type=str, help='override output basename')
+parser.add_argument('-LX', '--lattice_x', default=0, type=int, help='set this to specify the number of lattice points in the X direction')
+parser.add_argument('-LY', '--lattice_y', default=1, type=int, help='set this to specify the number of lattice points in the Y direction')
+parser.add_argument('-LZ', '--lattice_z', default=1, type=int, help='set this to specify the number of lattice points in the Z direction')
 
-theta=math.pi/3.0  
+# parser.add_argument('-LN', '--lattice_x', default=0, type=int, help='set this to override the number of lattice points in each direction')
+
+
+parser.add_argument('-LL', '--lattice_label', default="R3", type=str, help='set this to specify the element label of lattice particles')
+
+
+theta=math.pi/3.0  #theta for monoclinic unit cell
 #theta=math.pi/2.0
 ucell=np.array([[1,0,0],[np.cos(theta),np.sin(theta),0],[0,0,1]])
 
@@ -50,68 +67,108 @@ else:
 
 #if len(args.output)>0:
 #	basename=args.output
-	
 
 
 print "running on",platform.system(),platform.release(),platform.version()
 
-if platform.system()=="Windows":  #path separators 
+if platform.system()=="Windows":  #path separators are different between unix/windows
 	fd="\\"
 else:
 	import load_traj as lt
 	fd="/"
 
-	
+
 label="out_"+basename
 
 tfname=label+"_traj"
 sfname=label+"_sf"
 
-dens.Nspatialgrid=128
+dens.Nspatialgrid=128 #number of points for spatial grid.  Since this is 3d, memory usage scales as N^3.  Although this can be reduced in the future
 #dens.Nspatialgrid=64
 #dens.Nspatialgrid=180
 
+# if args.LN>0:
+	# args.lattice_x=args.LN
+	# args.lattice_y=args.LN
+	# args.lattice_z=args.LN
+	
+Nlat=args.lattice_x*args.lattice_y*args.lattice_z
 
-if args.random>0:
+if Nlat>0:
+
+	boxsize=100.0
+	
+	Nx=args.lattice_x
+	Ny=args.lattice_y
+	Nz=args.lattice_z
+	
+	Nsteps=1
+	
+	dims=np.ones((Nsteps,3))*boxsize
+	coords=np.zeros((Nsteps,Nlat,3))
+	
+	cbufx=np.linspace(0,boxsize,Nx,endpoint=False)
+	cbufy=np.linspace(0,boxsize,Ny,endpoint=False)
+	cbufz=np.linspace(0,boxsize,Nz,endpoint=False)
+	
+	cbx,cby,cbz=np.meshgrid(cbufx,cbufy,cbufz)
+	
+	coords[0,:,0]=cbx.reshape((Nlat))
+	coords[0,:,1]=cby.reshape((Nlat))
+	coords[0,:,2]=cbz.reshape((Nlat))
+	
+	sfname='lattice_'+str(Nx)+"_"+str(Ny)+"_"+str(Nz)
+	
+	name=np.zeros(Nlat,dtype=object)
+	mass=np.zeros(Nlat)
+	typ=np.zeros(Nlat,dtype=object)
+
+	typ[:]=args.lattice_label
+	
+	
+	print "saving..."
+	np.savez_compressed(sfname,dims=dims,coords=coords,name=name,typ=typ)
+	rad=dens.load_radii("radii.txt")					#load radii definitions from file
+	print "computing SF..."
+	dens.compute_sf(coords,dims,typ,sfname,rad,ucell)		#compute time-averaged 3d structure factor and save to sfname.npz
+	
+
+
+
+elif args.random_counts>0:	#create a random trajectory
 	spcheck=0  #check if simulating a single particle.  
-	print "generating random trajectory..."
-	Rsteps=1
-	Ratoms=args.random #100000#0
-	if Ratoms==1:
-		Ratoms=2
-		spcheck=1
+	
 	Rboxsize=100.0
 	BUFFsize=10000000
+	sfname='RND'
+	
+	print "generating random trajectory..."
+	Rsteps=args.random_timesteps
+	Ratoms=args.random_counts #100000#0
 	
 	dims=np.ones((Rsteps,3))*Rboxsize
 	coords=np.random.random((Rsteps,Ratoms,3))*dims[0,:]
 	
-	if spcheck==1:
-		coords[0,1,:]=coords[0,0,:]   #reposition second atom onto first.  The need for this (probably) comes from certain dimensions having a size of 1
-	
-	
 	name=np.zeros(Ratoms,dtype=object)
 	mass=np.zeros(Ratoms)
 	typ=np.zeros(Ratoms,dtype=object)
-	for it in xrange(Ratoms):
-		typ[it]="R3"
+
+	# for it in xrange(Ratoms):
+		# typ[it]=args.random_label
+	typ[:]=args.random_label
 	
 	
-	sfname='RND'
 	print "saving..."
 	np.savez_compressed("RAND",dims=dims,coords=coords,name=name,typ=typ)
 	rad=dens.load_radii("radii.txt")					#load radii definitions from file
 	print "computing SF..."
 	dens.compute_sf(coords,dims,typ,sfname,rad,ucell)		#compute time-averaged 3d structure factor and save to sfname.npz
 
+else:  #load trajectory or npz file
 
-
-
-else:
-
-	if args.force_recompute>0 or not os.path.isfile(sfname+".npz"):					#check to see if SF needs to be calculated
-		if args.force_recompute>1 or not os.path.isfile(tfname+".npz"):  				#check to see if trajectory needs to be processed
-			if platform.system()=="Windows":
+	if args.force_recompute>0 or not os.path.isfile(sfname+".npz"):			#check to see if SF needs to be calculated
+		if args.force_recompute>1 or not os.path.isfile(tfname+".npz"): 		#check to see if trajectory needs to be processed
+			if platform.system()=="Windows":  										#This part must be done in an environment that can import MDAnalysis
 				print "Unable to process trajectory file on Windows"
 				exit()
 			else:
@@ -125,9 +182,10 @@ else:
 		dens.compute_sf(traj['coords'][args.first_frame:,...],traj['dims'][args.first_frame:,...],traj['typ'],sfname,rad)		#compute time-averaged 3d structure factor and save to sfname.npz
 
 
+print "reloading SF..."
 dpl=np.load(sfname+".npz")					#load 3d SF
 
-grid=dpl['kgridplt']
+grid=dpl['kgridplt']  #grid contains Kx,Ky,Kz,S(Kx,ky,kz) information
 
 #print grid[:,0,0,0]
 #print grid.shape
@@ -145,7 +203,7 @@ sfdir=dir+"structure_factor"+fd
 sfsubdir=sfdir+"additional_plots"+fd
 EWdir=dir+"Ewald_Corrected"+fd
 
-
+print "making plots..."
 if True:
 	print "Ewald plots"
 	p2d.path=EWdir
@@ -154,7 +212,7 @@ if True:
 	#print ucell.shape
 	#print ucell
 	#exit()
-	p2d.Plot_Ewald_triclinic(grid,1.54,ucell)		#compute Ewald-corrected SF cross sections in xy,xz,yz planes
+	p2d.Plot_Ewald_triclinic(grid,XRAY_WAVELENGTH,ucell)		#compute Ewald-corrected SF cross sections in xy,xz,yz planes
 	
 	#xy,yz,xz planes of SF
 if False:
