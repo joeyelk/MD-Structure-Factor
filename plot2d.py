@@ -7,36 +7,47 @@ import tqdm
 from tqdm import trange
 mainlabel=""
 
-units="$\AA^{-1}$"
+units="$\AA^{-1}$"				#units of q vector
 
 xunits=units
 yunits=units
 zunits=units
 
-contours=200
-DPI=300
-format=".png"
-text="Structure Factor"
+contours=200					#number of contours for contour plots
+DPI=300							#resolution in DPI of images
+format=".png"					#format to save images as
+text="Structure Factor"			#label
 
 
+#SHOW_PLOTS=False  #show plots in addition to saving.  This is useful for cropping or debugging
 
-PLOT_EWALDS=False
-savelog=True
-savelin=True
+PLOT_EWALDS=False 	#enable ewald-corrected SF plots
+savelog=True		#save log(SF)
+savelin=True		#save SF
 
-normplot=1
+normplot=1 			#normalize plots
 
 title_fontsize=9
 
-path=""
+path=""				
 
-def pl(title,obj):
+def pl(title,obj):		
 	delim="="*20
 	print delim,title,delim
 	print obj
 	print
 	#print delim,"end ",title,delim
 
+def pli(title,obj):
+	pl(title,obj)
+	buf=raw_input("enter q to quit, anything else to continue")
+	if buf=='q':
+		exit()
+def ple(title,obj):
+	pl(title,obj)
+	exit()
+
+		
 
 def csplot_wlog(X,Y,Z,contours,lab,xlab,ylab,**kwargs):
 	csplot(X,Y,Z,contours,lab,xlab,ylab,**kwargs)
@@ -397,6 +408,7 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 		
 					#rzpts.append((X[ix]*np.cos(theta),Y[iy]*np.cos(theta),K_ES*(1.0-np.cos(theta))))
 	else:
+		pass
 		# Ninterp=3.0
 		# for ix in trange(D.shape[0]*Ninterp):
 			# xval=(ix/Ninterp)*D[]
@@ -439,6 +451,12 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	#print xyzpts[:,2]
 	#a=raw_input("input")
 	Hcount,XEC,YEC=np.histogram2d(rpts,xyzpts[:,2],bins=(X,Z))
+	
+	# pl('hc',Hcount)
+	# pl('hc shape',Hcount.shape)
+	# pli('XEC',XEC)
+	# pli('YEC',YEC)
+	
 	# for i in xrange(Hcount.shape[0]):
 		# print i,np.amax(Hcount[i,:])
 	# a=raw_input("input")
@@ -449,6 +467,15 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	# print Hcount
 	# print np.amax(Hcount)
 	# 
+	
+	# for i in xrange(Hcount.shape[0]):
+		# print i,np.amax(Hcount[i,:])
+	# print Hcount.shape[0]
+#		pli('hc '+str(i),Hcount[i,:])
+	
+	# plt.plot(Hcount[Hcount.shape[0]/2,:])
+	# plt.show()
+	# exit()
 	
 	
 	
@@ -466,7 +493,7 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	#for ir in xrange(Hrz.shape[0]):
 	for ir in xrange(0,Hrz.shape[0]/2):
 		#Hrz[:,-iz+Hrz.shape[1]/2]=Hrz[:,iz+Hrz.shape[1]/2]
-		Hrz[-ir-1+Hrz.shape[0]/2,:]=Hrz[ir+1+Hrz.shape[0]/2,:]
+		Hrz[-ir+Hrz.shape[0]/2,:]=Hrz[ir+1+Hrz.shape[0]/2,:]   #this needs to be tested for both even and odd numbers of bins 
 		#Hrz[ir+Hrz.shape[1]/2]=1.0
 	# print Hcount
 	# a=raw_input("input")
@@ -478,9 +505,9 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	#	aspect='equal')
 	
 	
-	exev=(XEV[1]-XEV[0])/0.5
-	eyev=(YEV[1]-YEV[0])/0.5
-	XMG, YMG = np.meshgrid(XEV+exev, YEV+eyev)
+	# exev=(XEV[1]-XEV[0])/0.5
+	# eyev=(YEV[1]-YEV[0])/0.5
+	XMG, YMG = np.meshgrid(XEV, YEV)#-eyev)
 	# XMG, YMG = np.meshgrid(XEV, YEV)
 	# print XMG
 	# print YMG
@@ -502,6 +529,7 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	#cbar = fig.colorbar(cax, ticks=[-1, 0, 1], orientation='horizontal')
 	#cbar = fig.colorbar(cax)
 	plt.savefig(path+"rzplot"+format,dpi=DPI)
+	
 	plt.clf()
 	
 	# 
