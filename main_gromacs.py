@@ -47,6 +47,10 @@ parser.add_argument('-LZ', '--lattice_z', default=1, type=int, help='set this to
 
 parser.add_argument('-LL', '--lattice_label', default="R3", type=str, help='set this to specify the element label of lattice particles')
 
+parser.add_argument('-SR', '--spatial_resolution', default=1.0, help='set this to specify the spatial resolution for the density grid')
+
+
+
 
 theta=math.pi/3.0  #theta for monoclinic unit cell
 #theta=math.pi/2.0
@@ -54,6 +58,7 @@ ucell=np.array([[1,0,0],[np.cos(theta),np.sin(theta),0],[0,0,1]])
 
 
 args=parser.parse_args()
+
 
 if len(args.input)>0:
 	basename=args.input
@@ -83,7 +88,12 @@ label="out_"+basename
 tfname=label+"_traj"
 sfname=label+"_sf"
 
-dens.Nspatialgrid=128 #number of points for spatial grid.  Since this is 3d, memory usage scales as N^3.  Although this can be reduced in the future
+#dens.Nspatialgrid=128 #number of points for spatial grid.  Since this is 3d, memory usage scales as N^3.  Although this can be reduced in the future
+
+
+
+
+#dens.Nspatialgrid=np.asarray([128,128,200]) #number of points for spatial grid.  Since this is 3d, memory usage scales as N^3.  Although this can be reduced in the future
 #dens.Nspatialgrid=64
 #dens.Nspatialgrid=180
 
@@ -130,7 +140,8 @@ if Nlat>0:
 	np.savez_compressed(sfname,dims=dims,coords=coords,name=name,typ=typ)
 	rad=dens.load_radii("radii.txt")					#load radii definitions from file
 	print "computing SF..."
-	dens.compute_sf(coords,dims,typ,sfname,rad,ucell)		#compute time-averaged 3d structure factor and save to sfname.npz
+	
+	dens.compute_sf(coords,dims,typ,sfname,rad,ucell,args.spatial_resolution)		#compute time-averaged 3d structure factor and save to sfname.npz
 	
 
 
@@ -147,6 +158,7 @@ elif args.random_counts>0:	#create a random trajectory
 	Ratoms=args.random_counts #100000#0
 	
 	dims=np.ones((Rsteps,3))*Rboxsize
+	# dims[0,2]*=1.2
 	coords=np.random.random((Rsteps,Ratoms,3))*dims[0,:]
 	
 	name=np.zeros(Ratoms,dtype=object)
@@ -157,12 +169,12 @@ elif args.random_counts>0:	#create a random trajectory
 		# typ[it]=args.random_label
 	typ[:]=args.random_label
 	
-	
 	print "saving..."
 	np.savez_compressed("RAND",dims=dims,coords=coords,name=name,typ=typ)
 	rad=dens.load_radii("radii.txt")					#load radii definitions from file
 	print "computing SF..."
-	dens.compute_sf(coords,dims,typ,sfname,rad,ucell)		#compute time-averaged 3d structure factor and save to sfname.npz
+	
+	dens.compute_sf(coords,dims,typ,sfname,rad,ucell,args.spatial_resolution)		#compute time-averaged 3d structure factor and save to sfname.npz
 
 else:  #load trajectory or npz file
 
@@ -179,7 +191,7 @@ else:  #load trajectory or npz file
 		traj=np.load(tfname+".npz")							#load processed trajectory
 		rad=dens.load_radii("radii.txt")					#load radii definitions from file
 
-		dens.compute_sf(traj['coords'][args.first_frame:,...],traj['dims'][args.first_frame:,...],traj['typ'],sfname,rad)		#compute time-averaged 3d structure factor and save to sfname.npz
+		dens.compute_sf(traj['coords'][args.first_frame:,...],traj['dims'][args.first_frame:,...],traj['typ'],sfname,rad,args.spatial_resolution)		#compute time-averaged 3d structure factor and save to sfname.npz
 
 
 print "reloading SF..."
@@ -189,10 +201,10 @@ grid=dpl['kgridplt']  #grid contains Kx,Ky,Kz,S(Kx,ky,kz) information
 
 #print grid[:,0,0,0]
 #print grid.shape
-#exit()
+
 #print grid[grid.shape[0]/2,grid.shape[1]/2,grid.shape[2]/2,3]
 #print grid[grid.shape[0]/2+1,grid.shape[1]/2,grid.shape[2]/2,3]
-#exit()
+# 
 
 
 
@@ -211,16 +223,16 @@ if True:
 	
 	#print ucell.shape
 	#print ucell
-	#exit()
+	# 
 	p2d.Plot_Ewald_triclinic(grid,XRAY_WAVELENGTH,ucell)		#compute Ewald-corrected SF cross sections in xy,xz,yz planes
-	
+	print "EW done"
 	#xy,yz,xz planes of SF
-if False:
+if True:
 	print "xy,yz,xz plots"
 	p2d.path=dir+sfdir
-	p2d.sfplot(grid[grid.shape[0]/2,:,:,:])		#plot yz plane
-	p2d.sfplot(grid[:,grid.shape[1]/2,:,:])		#plot xz plane
-	p2d.sfplot(grid[:,:,grid.shape[2]/2,:])		#plot xy plane
+	# p2d.sfplot(grid[grid.shape[0]/2,:,:,:])		#plot yz plane
+	# p2d.sfplot(grid[:,grid.shape[1]/2,:,:])		#plot xz plane
+	# p2d.sfplot(grid[:,:,grid.shape[2]/2,:])		#plot xy plane
 	p2d.radial_integrate(grid,300,dir+"radial.png")
 
 

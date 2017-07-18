@@ -30,6 +30,13 @@ title_fontsize=9
 
 path=""
 
+def pl(title,obj):
+	delim="="*20
+	print delim,title,delim
+	print obj
+	print
+	#print delim,"end ",title,delim
+
 
 def csplot_wlog(X,Y,Z,contours,lab,xlab,ylab,**kwargs):
 	csplot(X,Y,Z,contours,lab,xlab,ylab,**kwargs)
@@ -58,7 +65,7 @@ def csplot(X,Y,Z,contours,lab,xlab,ylab,**kwargs):
 	plt.savefig(path+fname+format,dpi=DPI)
 	#print
 	#print "saving ",path+fname+format
-	#exit()
+	# 
 	plt.clf()
 
 
@@ -132,6 +139,8 @@ def radial_integrate(D,Nbins,outputname):
 	#Y =D[0,:,0,1]
 	#Z =D[0,0,:,2]
 	
+	
+	
 	SF=D[:,:,:,3]
 	#SF[SF.shape[0]/2,SF.shape[1]/2,SF.shape[2]/2]=0.0
 	
@@ -140,7 +149,14 @@ def radial_integrate(D,Nbins,outputname):
 		
 	#print SF.shape[0]/2,SF.shape[1]/2,SF.shape[2]/2
 	#SF[127,126,127]=0.0
-	#exit()
+	# 
+	
+	
+	print D[:,0,0,0]
+	print "done!"
+	# print "done!"
+	# exit()
+	
 	R=(D[:,:,:,0]**2).astype(np.float16)+(D[:,:,:,1]**2).astype(np.float16)+(D[:,:,:,2]**2).astype(np.float16)
 	H,E=np.histogram(R,bins=Nbins,weights=SF)
 	Hc,E=np.histogram(R,bins=Nbins)
@@ -174,7 +190,7 @@ def radial_integrate(D,Nbins,outputname):
 				# pts.append((x,y,z))
 			
 	# A=ES(pts)
-	# B=
+	
 	
 
 
@@ -323,6 +339,12 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	
 	# print D.shape
 
+	# for i in xrange(4):
+		# pl(i,np.amax(D[:,:,:,i]))
+	
+	# print "exiting"
+	# exit()
+	
 	if not os.path.exists(path):
 		os.makedirs(path)
 		
@@ -339,20 +361,15 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	b2=(np.cross(a3,a1))/(np.dot(a2,np.cross(a3,a1)))#*2.0*math.pi
 	b3=(np.cross(a1,a2))/(np.dot(a3,np.cross(a1,a2)))#*2.0*math.pi 
 	
-	#print b1,b2,b3
-	#exit()
-
+	
 	Dnew=np.zeros_like(D)
-
 	
 	for ix in trange(D.shape[0]):			
 		Dnew[ix,:,:,0:3]+=X[ix]*b1  #(X[ix]-X[X.shape[0]/2])*b1
-		# print ix,X[ix]*b1
-	# exit()
+		
 	for iy in trange(D.shape[1]):			
 		Dnew[:,iy,:,0:3]+=Y[iy]*b2  #(Y[iy]-Y[Y.shape[0]/2])*b2
-		# print iy,Y[iy]*b2
-	# exit()
+		
 	for iz in trange(D.shape[2]):			
 		Dnew[:,:,iz,0:3]+=Z[iz]*b3  #(Z[iz]-Z[Z.shape[0]/2])*b3
 	
@@ -369,16 +386,27 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	xyzpts=[]
 	print "setting up points for radial integration"
 	#There's a better/faster way of doing this, but it doesn't take too much time as-is
-	for ix in trange(D.shape[0]):
-		#xsq=X[ix]**2.0
-		for iy in xrange(D.shape[1]):
-			#r=np.sqrt(Xsq+Y[iy]**2.0)
-			for iz in xrange(D.shape[2]):
-				#xyzpts.append((X[ix],Y[iy],Z[iz]))
-				xyzpts.append((D[ix,iy,iz,0],D[ix,iy,iz,1],D[ix,iy,iz,2]))
-	
-				#rzpts.append((X[ix]*np.cos(theta),Y[iy]*np.cos(theta),K_ES*(1.0-np.cos(theta))))
-				
+	if True:
+		for ix in trange(D.shape[0]):
+			#xsq=X[ix]**2.0
+			for iy in xrange(D.shape[1]):
+				#r=np.sqrt(Xsq+Y[iy]**2.0)
+				for iz in xrange(D.shape[2]):
+					#xyzpts.append((X[ix],Y[iy],Z[iz]))
+					xyzpts.append((D[ix,iy,iz,0],D[ix,iy,iz,1],D[ix,iy,iz,2]))
+		
+					#rzpts.append((X[ix]*np.cos(theta),Y[iy]*np.cos(theta),K_ES*(1.0-np.cos(theta))))
+	else:
+		# Ninterp=3.0
+		# for ix in trange(D.shape[0]*Ninterp):
+			# xval=(ix/Ninterp)*D[]
+			# for iy in xrange(D.shape[1]*Ninterp):
+				# for iz in xrange(D.shape[2]*Ninterp):
+					# xyzpts.append((D[ix,iy,iz,0],D[ix,iy,iz,1],D[ix,iy,iz,2]))
+
+
+
+
 	xyzpts=np.asarray(xyzpts)
 	EWDxyz=ES(xyzpts)
 	
@@ -391,7 +419,7 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	# for i in xrange(rpts.shape[0]):
 	
 		# print EWDxyz[i],rpts[i]
-	# exit()
+	#  
 	
 	
 	# print rpts.shape
@@ -416,12 +444,11 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	# a=raw_input("input")
 	# for i in xrange(Hcount.shape[1]):
 		# print i,np.amax(Hcount[:,i])
-	#exit()
+	# 
 	
 	# print Hcount
 	# print np.amax(Hcount)
-	#exit()
-	
+	# 
 	
 	
 	
@@ -446,7 +473,7 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	# print Hval
 	# a=raw_input("input")
 	# print Hrz
-	# exit()
+	#  
 	#ax = plt.add_subplot(111, title='pcolormesh: actual edges',
 	#	aspect='equal')
 	
@@ -457,7 +484,7 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	# XMG, YMG = np.meshgrid(XEV, YEV)
 	# print XMG
 	# print YMG
-	# exit()
+	#  
 	#tst=np.where(YMG[:-1,:-1]>0.0,np.log(Hrz),0.0)
 	#plt.pcolormesh(XMG[:-1], YMG[:-1], np.log(Hrz))
 	
@@ -467,7 +494,7 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 
 	#plt.contourf(Hrz.T)
 	#plt.savefig(path+"rzplt2")
-	#exit()
+	# 
 	
 	
 	#cax=ax.pcolormesh(XMG[:-1,:], YMG[:-1,:], Hrz.T)#,vmin=0.0)#,vmax=np.amax(Hrz))
@@ -477,7 +504,7 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	plt.savefig(path+"rzplot"+format,dpi=DPI)
 	plt.clf()
 	
-	#exit()
+	# 
 	
 	# fig, ax = plt.subplots()
 	# cax=ax.pcolormesh(XMG[:-1,:], YMG[:-1,:], np.log(Hrz.T))
@@ -494,11 +521,11 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	
 	# print Hcount.shape
 	# print "HC"
-	# exit()
+	#  
 	
 	
 	# print EWDxyz.shape
-	#exit()
+	# 
 	
 	
 	xypts=[]
@@ -559,7 +586,6 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	
 	
 	
-	
 	title="Ewald Corrected Structure Factor \n $\lambda=$"+str(wavelength_angstroms)+" $\AA$   $k_{ew}=$"+str(round(K_ES,2))+" $\AA^{-1}$"
 	ltitle='log ' + title
 	
@@ -614,97 +640,97 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	
 	
 	
-	exit()
+	#  
 	#csplot(X,Y,Z,contours,xlab,ylab,**kwargs):
 	
 	
-	plt.suptitle(ltitle)
-	plt.xlabel(xlab)
-	plt.ylabel(ylab)
-	plt.contourf(D[:,:,0,0],D[:,:,0,1],np.log(EWDxy),contours,**kwargs)
-	plt.savefig(path+fname+"xylog"+format,dpi=DPI)
-	plt.clf()
+	# plt.suptitle(ltitle)
+	# plt.xlabel(xlab)
+	# plt.ylabel(ylab)
+	# plt.contourf(D[:,:,0,0],D[:,:,0,1],np.log(EWDxy),contours,**kwargs)
+	# plt.savefig(path+fname+"xylog"+format,dpi=DPI)
+	# plt.clf()
 	
-	plt.suptitle(title)
-	plt.xlabel(xlab)
-	plt.ylabel(zlab)
-	plt.contourf(D[:,0,:,0],D[:,0,:,2],EWDxz,contours,**kwargs)
-	plt.savefig(path+fname+"xz"+format,dpi=DPI)
-	plt.clf()
+	# plt.suptitle(title)
+	# plt.xlabel(xlab)
+	# plt.ylabel(zlab)
+	# plt.contourf(D[:,0,:,0],D[:,0,:,2],EWDxz,contours,**kwargs)
+	# plt.savefig(path+fname+"xz"+format,dpi=DPI)
+	# plt.clf()
 	
-	plt.suptitle(ltitle)
-	plt.xlabel(xlab)
-	plt.ylabel(zlab)
-	plt.contourf(D[:,0,:,0],D[:,0,:,2],np.log(EWDxz),contours,**kwargs)
-	plt.savefig(path+fname+"xzlog"+format,dpi=DPI)
-	plt.clf()
+	# plt.suptitle(ltitle)
+	# plt.xlabel(xlab)
+	# plt.ylabel(zlab)
+	# plt.contourf(D[:,0,:,0],D[:,0,:,2],np.log(EWDxz),contours,**kwargs)
+	# plt.savefig(path+fname+"xzlog"+format,dpi=DPI)
+	# plt.clf()
 	
-	plt.suptitle(title)
-	plt.xlabel(ylab)
-	plt.ylabel(zlab)
-	plt.contourf(D[0,:,:,1],D[0,:,:,2],EWDyz,contours,**kwargs)
-	plt.savefig(path+fname+"yz"+format,dpi=DPI)
-	plt.clf()
+	# plt.suptitle(title)
+	# plt.xlabel(ylab)
+	# plt.ylabel(zlab)
+	# plt.contourf(D[0,:,:,1],D[0,:,:,2],EWDyz,contours,**kwargs)
+	# plt.savefig(path+fname+"yz"+format,dpi=DPI)
+	# plt.clf()
 	
-	plt.suptitle(ltitle)
-	plt.xlabel(ylab)
-	plt.ylabel(zlab)
-	plt.contourf(D[0,:,:,1],D[0,:,:,2],np.log(EWDyz),contours,**kwargs)
-	plt.savefig(path+fname+"yzlog"+format,dpi=DPI)
-	plt.clf()
+	# plt.suptitle(ltitle)
+	# plt.xlabel(ylab)
+	# plt.ylabel(zlab)
+	# plt.contourf(D[0,:,:,1],D[0,:,:,2],np.log(EWDyz),contours,**kwargs)
+	# plt.savefig(path+fname+"yzlog"+format,dpi=DPI)
+	# plt.clf()
 	
 
 	
-	title="Flat Structure Factor \n $\lambda=$"+str(wavelength_angstroms)+" $\AA$   $k_{ew}=$"+str(round(K_ES,2))+" $\AA^{-1}$"
-	ltitle='log ' + title
+	# title="Flat Structure Factor \n $\lambda=$"+str(wavelength_angstroms)+" $\AA$   $k_{ew}=$"+str(round(K_ES,2))+" $\AA^{-1}$"
+	# ltitle='log ' + title
 	
-	xlab='x ('+units + ")"
-	ylab='y ('+units + ")"
-	zlab='z ('+units + ")"
+	# xlab='x ('+units + ")"
+	# ylab='y ('+units + ")"
+	# zlab='z ('+units + ")"
 	
-	fname="Flat_"	
+	# fname="Flat_"	
 	
-	plt.suptitle(title)
-	plt.xlabel(xlab)
-	plt.ylabel(ylab)
-	plt.contourf(D[:,:,0,0],D[:,:,0,1],EWDxyflat,contours,**kwargs)
-	plt.savefig(path+fname+"xy"+format,dpi=DPI)
-	plt.clf()
+	# plt.suptitle(title)
+	# plt.xlabel(xlab)
+	# plt.ylabel(ylab)
+	# plt.contourf(D[:,:,0,0],D[:,:,0,1],EWDxyflat,contours,**kwargs)
+	# plt.savefig(path+fname+"xy"+format,dpi=DPI)
+	# plt.clf()
 	
-	plt.suptitle(ltitle)
-	plt.xlabel(xlab)
-	plt.ylabel(ylab)
-	plt.contourf(D[:,:,0,0],D[:,:,0,1],np.log(EWDxyflat),contours,**kwargs)
-	plt.savefig(path+fname+"xylog"+format,dpi=DPI)
-	plt.clf()
+	# plt.suptitle(ltitle)
+	# plt.xlabel(xlab)
+	# plt.ylabel(ylab)
+	# plt.contourf(D[:,:,0,0],D[:,:,0,1],np.log(EWDxyflat),contours,**kwargs)
+	# plt.savefig(path+fname+"xylog"+format,dpi=DPI)
+	# plt.clf()
 	
-	plt.suptitle(title)
-	plt.xlabel(xlab)
-	plt.ylabel(zlab)
-	plt.contourf(D[:,0,:,0],D[:,0,:,2],EWDxzflat,contours,**kwargs)
-	plt.savefig(path+fname+"xz"+format,dpi=DPI)
-	plt.clf()
+	# plt.suptitle(title)
+	# plt.xlabel(xlab)
+	# plt.ylabel(zlab)
+	# plt.contourf(D[:,0,:,0],D[:,0,:,2],EWDxzflat,contours,**kwargs)
+	# plt.savefig(path+fname+"xz"+format,dpi=DPI)
+	# plt.clf()
 	
-	plt.suptitle(ltitle)
-	plt.xlabel(xlab)
-	plt.ylabel(zlab)
-	plt.contourf(D[:,0,:,0],D[:,0,:,2],np.log(EWDxzflat),contours,**kwargs)
-	plt.savefig(path+fname+"xzlog"+format,dpi=DPI)
-	plt.clf()
+	# plt.suptitle(ltitle)
+	# plt.xlabel(xlab)
+	# plt.ylabel(zlab)
+	# plt.contourf(D[:,0,:,0],D[:,0,:,2],np.log(EWDxzflat),contours,**kwargs)
+	# plt.savefig(path+fname+"xzlog"+format,dpi=DPI)
+	# plt.clf()
 	
-	plt.suptitle(title)
-	plt.xlabel(ylab)
-	plt.ylabel(zlab)
-	plt.contourf(D[0,:,:,1],D[0,:,:,2],EWDyzflat,contours,**kwargs)
-	plt.savefig(path+fname+"yz"+format,dpi=DPI)
-	plt.clf()
+	# plt.suptitle(title)
+	# plt.xlabel(ylab)
+	# plt.ylabel(zlab)
+	# plt.contourf(D[0,:,:,1],D[0,:,:,2],EWDyzflat,contours,**kwargs)
+	# plt.savefig(path+fname+"yz"+format,dpi=DPI)
+	# plt.clf()
 	
-	plt.suptitle(ltitle)
-	plt.xlabel(ylab)
-	plt.ylabel(zlab)
-	plt.contourf(D[0,:,:,1],D[0,:,:,2],np.log(EWDyzflat),contours,**kwargs)
-	plt.savefig(path+fname+"yzlog"+format,dpi=DPI)
-	plt.clf()
+	# plt.suptitle(ltitle)
+	# plt.xlabel(ylab)
+	# plt.ylabel(zlab)
+	# plt.contourf(D[0,:,:,1],D[0,:,:,2],np.log(EWDyzflat),contours,**kwargs)
+	# plt.savefig(path+fname+"yzlog"+format,dpi=DPI)
+	# plt.clf()
 	
 	
 	
