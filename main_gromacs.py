@@ -14,6 +14,7 @@ import tqdm  # progress bar
 import platform
 import matplotlib.pyplot as plt  # must be imported after anything that imports mayavi/mlab
 import argparse
+import warnings
 
 parser = argparse.ArgumentParser(description='Calculate 3d Structure Factor')
 
@@ -23,12 +24,15 @@ parser.add_argument('-traj', '--trajectory', default='', type=str, help='Input t
 parser.add_argument('--cscale', default=1, type=float, help='Scale color map on plots')
 parser.add_argument('--lcscale', default=1, type=float, help='Scale color map on log plots')
 parser.add_argument('-fi', '--first_frame', default=0, type=int, help='frame to start at')
+parser.add_argument('-e', '--end_frame', default=-1, type=int, help='frame to end at')
 parser.add_argument('-fr', '--force_recompute', default=0, type=int, help='force recomputing SF (if >=1) or trajectory and SF(if >=2)')
 #parser.add_argument('-o', '--output', default='', type=str, help='override output basename')
 
 args=parser.parse_args()
 
 location = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))  # Directory this script is in
+
+warnings.simplefilter("ignore", RuntimeWarning)
 
 if len(args.input) > 0:
     basename = args.input
@@ -65,7 +69,7 @@ if args.force_recompute > 0 or not os.path.isfile(sfname+".npz"):						# check t
     traj = np.load(tfname+".npz")							# load processed trajectory
     rad = dens2.load_radii("%s/radii.txt" % location)					# load radii definitions from file stored in git repo
 
-    dens2.compute_sf(traj['coords'][args.first_frame:,...],traj['dims'],traj['typ'],sfname,rad)	 # compute time-averaged 3d structure factor and save to sfname.npz
+    dens2.compute_sf(traj['coords'][args.first_frame:args.end_frame,...],traj['dims'],traj['typ'],sfname,rad)	 # compute time-averaged 3d structure factor and save to sfname.npz
 
 dpl = np.load(sfname+".npz")  # load 3d SF
 grid = dpl['kgridplt']
@@ -84,6 +88,8 @@ if True:
     theta = math.pi / 3.0
     ucell = np.array([[1, 0, 0], [np.cos(theta), np.sin(theta), 0], [0, 0, 1]])
     p2d.Plot_Ewald_triclinic(grid, 1.54, ucell)
+    p2d.radial_integrate(grid, 2000, dir + "radial.png")
+
 exit()
 # xy,yz,xz planes of SF
 if True:
@@ -92,8 +98,8 @@ if True:
     # p2d.sfplot(grid[grid.shape[0]/2, :, :, :], args.lcscale)		# plot yz plane
     # p2d.sfplot(grid[:, grid.shape[1]/2, :, :], args.lcscale)		# plot xz plane
     # p2d.sfplot(grid[:, :, grid.shape[2]/2, :], args.lcscale)		# plot xy plane
-    p2d.radial_integrate(grid, 300, dir + "radial.png")
-exit()
+    p2d.radial_integrate(grid, 1500, dir + "radial.png")
+
 if True:  # additional slices through SF
     print("additional plots")
     Nsteps = 8
