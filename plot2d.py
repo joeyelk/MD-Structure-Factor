@@ -21,7 +21,7 @@ text="Structure Factor"			#label
 
 #SHOW_PLOTS=False  #show plots in addition to saving.  This is useful for cropping or debugging
 
-PLOT_EWALDS=False 	#enable ewald-corrected SF plots
+PLOT_EWALDS=True 	#enable ewald-corrected SF plots
 savelog=True		#save log(SF)
 savelin=True		#save SF
 
@@ -363,7 +363,7 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	Y =D[0,:,0,1]
 	Z =D[0,0,:,2]
 	SF=D[:,:,:,3]
-	
+	#pli('Y0',Y)
 	a1=ucell[0]
 	a2=ucell[1]
 	a3=ucell[2]
@@ -371,7 +371,6 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	b1=(np.cross(a2,a3))/(np.dot(a1,np.cross(a2,a3)))#*2.0*math.pi
 	b2=(np.cross(a3,a1))/(np.dot(a2,np.cross(a3,a1)))#*2.0*math.pi
 	b3=(np.cross(a1,a2))/(np.dot(a3,np.cross(a1,a2)))#*2.0*math.pi 
-	
 	
 	Dnew=np.zeros_like(D)
 	
@@ -385,13 +384,17 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 		Dnew[:,:,iz,0:3]+=Z[iz]*b3  #(Z[iz]-Z[Z.shape[0]/2])*b3
 	
 	D=Dnew
+	
+	#pli('Y',Y)
+	
 	# X =Dnew[:,0,0,0]
 	# Y =Dnew[0,:,0,1]
 	# Z =Dnew[0,0,:,2]
 	K_ES=2.0*math.pi/wavelength_angstroms  #calculate k for incident xrays in inverse angstroms
 	
-	ES = RegularGridInterpolator((X, Y, Z), SF,bounds_error=False)		
+	ES = RegularGridInterpolator((X, Y, Z), SF,bounds_error=False)
 	
+	pli('warning! RegularGridInterpolator will produce incorrect results on a triclinic grid.  This issue is being worked on.')
 	
 	#angle averaging
 	xyzpts=[]
@@ -421,8 +424,6 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 
 	xyzpts=np.asarray(xyzpts)
 	EWDxyz=ES(xyzpts)
-	
-	
 	
 	#print rzpts.shape
 	
@@ -500,7 +501,6 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	# print Hval
 	# a=raw_input("input")
 	# print Hrz
-	#  
 	#ax = plt.add_subplot(111, title='pcolormesh: actual edges',
 	#	aspect='equal')
 	
@@ -518,7 +518,7 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	
 	#fig, ax = plt.subplots()
 	plt.pcolormesh(XMG[:-1,:], YMG[:-1,:], Hrz.T,vmin=0.0,vmax=np.amax(Hrz))
-
+	
 	#plt.contourf(Hrz.T)
 	#plt.savefig(path+"rzplt2")
 	# 
