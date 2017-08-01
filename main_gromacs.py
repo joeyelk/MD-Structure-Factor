@@ -47,13 +47,14 @@ parser.add_argument('-LZ', '--lattice_z', default=1, type=int, help='set this to
 
 parser.add_argument('-LL', '--lattice_label', default="R3", type=str, help='set this to specify the element label of lattice particles')
 
-parser.add_argument('-SR', '--spatial_resolution', default=1.0, help='set this to specify the spatial resolution for the density grid')
+parser.add_argument('-SR', '--spatial_resolution', default=1.0, type=float,help='set this to specify the spatial resolution for the density grid')
 
-
+ 
 
 
 theta=math.pi/3.0  #theta for monoclinic unit cell
-#theta=math.pi/2.0
+# theta=math.pi/6.0  #theta for monoclinic unit cell
+# theta=math.pi/2.0
 ucell=np.array([[1,0,0],[np.cos(theta),np.sin(theta),0],[0,0,1]])
 
 
@@ -87,6 +88,7 @@ label="out_"+basename
 
 tfname=label+"_traj"
 sfname=label+"_sf"
+
 
 #dens.Nspatialgrid=128 #number of points for spatial grid.  Since this is 3d, memory usage scales as N^3.  Although this can be reduced in the future
 
@@ -191,7 +193,8 @@ else:  #load trajectory or npz file
 		traj=np.load(tfname+".npz")							#load processed trajectory
 		rad=dens.load_radii("radii.txt")					#load radii definitions from file
 
-		dens.compute_sf(traj['coords'][args.first_frame:,...],traj['dims'][args.first_frame:,...],traj['typ'],sfname,rad,args.spatial_resolution)		#compute time-averaged 3d structure factor and save to sfname.npz
+		
+		dens.compute_sf(traj['coords'][args.first_frame:,...],traj['dims'][args.first_frame:,...],traj['typ'],sfname,rad,ucell,args.spatial_resolution)		#compute time-averaged 3d structure factor and save to sfname.npz
 
 
 print "reloading SF..."

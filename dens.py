@@ -1,7 +1,10 @@
 import numpy as np
 import numpy.linalg
 import math
-import mayavi.mlab as mlab
+try:
+	import mayavi.mlab as mlab
+except:
+	print "mayavi not imported"
 import matplotlib.pyplot as plt
 import tqdm
 from plot2d import pl
@@ -57,7 +60,9 @@ def rescale(coords,dims):
 	avgdims=np.average(dims,axis=0)
 	a=avgdims/dims
 	rc=coords
-	
+
+	# print rc.shape
+	# exit()
 	for it in xrange(rc.shape[0]):
 		for i in xrange(3):
 			rc[it,:,i]*=a[it,i]
@@ -132,6 +137,9 @@ def get_dplot(dmag):  #convert array to full 3d plottable array
 
 	#assume dimensions of dmag are even
 	
+	print dmag.shape
+	# exit()
+	
 	#dplot has odd dimensions so that zero position can be at center-removed
 	dplot=np.empty([dmag.shape[0],dmag.shape[1],(dmag.shape[2])*2-1])
 	ix1=dmag.shape[0]/2
@@ -174,13 +182,23 @@ def compute_sf(r,L,typ,out_filename,rad,ucell,Sres):
 
 	r,L=rescale(r,L)  #keep this inside compute_fft to allow coordinates to be rescaled to whichever numpy view is passed
 	
+	print "="*50
+	print L
+	print Sres
+	# print L/Sres
+	print type(Sres)
+	
+	
 	Nspatialgrid=(L/Sres).astype(int)
+	
+	# exit()
 	
 	if USE_BETTER_RESOLUTION:  #ensure that resolution is never worse than requested  (should use ceil here instead)
 		for i in xrange(3):
 			if L[i]/Nspatialgrid[i]>Sres:
 				Nspatialgrid[i]+=1	
-	
+	for i in xrange(3):  #ensure Nspatialgrid is even
+		Nspatialgrid[i]+=Nspatialgrid[i]%2
 	if PRINT_DETAILS:    #print spatial resolution details
 		print "="*50
 		print "="*50
@@ -191,6 +209,7 @@ def compute_sf(r,L,typ,out_filename,rad,ucell,Sres):
 		print "This corresponds to maximum q vector of ",2*math.pi*Nspatialgrid/L, " inverse Angstroms"
 		print "="*50
 		print "="*50	
+		# exit()
 	
 	dr=np.divide(L,Nspatialgrid)
 	
@@ -222,8 +241,15 @@ def compute_sf(r,L,typ,out_filename,rad,ucell,Sres):
 #	try:
 	# print Nspatialgrid+2*Nborder,Nspatialgrid+2*Nborder,Nspatialgrid+2*Nborder
 	
+	print "allocating memory"
+	print dtyp
+	print (int(Nspatialgrid[0]),int(Nspatialgrid[1]),int(Nspatialgrid[2])/2+1)
+	print (int(Nspatialgrid[0])+2*Nborder)*(int(Nspatialgrid[1])+2*Nborder)*(int(Nspatialgrid[2])+2*Nborder)*4/(2**20.0), "MB"
 	d0=np.zeros((int(Nspatialgrid[0])+2*Nborder,int(Nspatialgrid[1])+2*Nborder,int(Nspatialgrid[2])+2*Nborder),dtype=dtyp)  		#density[x,y,z]
 
+	print d0.nbytes/(2**20.0), "MB"
+	
+	
 	sf=np.zeros((int(Nspatialgrid[0]),int(Nspatialgrid[1]),int(Nspatialgrid[2])/2+1),dtype=dtyp)  								#3d Structure factor
 
 	#spatial grid.  grid[x,y,z,0] gives x coordinate of this grid position.  4th index value of 3 will ultimately store SF data
@@ -274,6 +300,7 @@ def compute_sf(r,L,typ,out_filename,rad,ucell,Sres):
 	
 	
 	print "Calculating Structure factor for ",r.shape[1]," atoms over ",r.shape[0], " timesteps. \n" ,"Progress: "
+	
 	for it in tqdm.tqdm(xrange(r.shape[0]),unit='timestep'):  #loop over timestep
 	
 			for im in tqdm.tqdm(xrange(r.shape[1]),unit='atoms'): #loop over atoms
@@ -299,7 +326,10 @@ def compute_sf(r,L,typ,out_filename,rad,ucell,Sres):
 				
 				#distSQ=buf[...,0]**2+buf[...,1]**2+buf[...,2]**2 
 				#distSQ=np.einsum('ijkl,ml->ijkm',buf,ucell)
+				
 				buf2=np.einsum('ml,ijkm',ucell,buf)
+				# buf2=buf
+				
 				distSQ=buf2[...,0]**2+buf2[...,1]**2+buf2[...,2]**2 
 				
 				
@@ -311,6 +341,12 @@ def compute_sf(r,L,typ,out_filename,rad,ucell,Sres):
 			
 			d1=remap_grid_tcl(d0,des_tcl,ori_tcl)			#remap density onto periodic cell
 			
+			
+			# plt.contourf(d1[:,:,d1.shape[2]/2])
+			# plt.show()
+			# plt.clf()
+			
+
 			dfft=np.fft.rfftn(d1)				#compute 3d FFT
 			
 			dmag=dfft.conjugate()						
@@ -327,6 +363,7 @@ def compute_sf(r,L,typ,out_filename,rad,ucell,Sres):
 			# plt.show()
 			# plt.clf()
 						
+	
 	
 	sfplt=get_dplot(sf)
 	
