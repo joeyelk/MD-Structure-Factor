@@ -304,7 +304,7 @@ def compute_sf(r,L,typ,out_filename,rad,ucell,Sres):
 	
 	Ntimesteps=r.shape[0]
 	if RANDOM_NOISE>0:
-		Ntimesteps*=1
+		Ntimesteps*=RANDOM_NOISE
 		print "*"*80
 		print "*"*80
 		print "OVERRIDING DENSITY WITH RANDOM NOISE"
