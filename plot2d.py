@@ -444,7 +444,6 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 				for iz in xrange(D.shape[2]):
 					#xyzpts.append((X[ix],Y[iy],Z[iz]))
 					xyzpts.append((D[ix,iy,iz,0],D[ix,iy,iz,1],D[ix,iy,iz,2]))
-		
 					#rzpts.append((X[ix]*np.cos(theta),Y[iy]*np.cos(theta),K_ES*(1.0-np.cos(theta))))
 	else:
 		pass
@@ -472,6 +471,8 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 
 	switch1=True
 	
+	
+	
 	if switch1:
 		Hcount=np.where(Hcount==0,1,Hcount)
 		
@@ -480,18 +481,22 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	if not switch1:
 		Hrz = np.ma.masked_invalid(Hrz)
 	
+	for ir in xrange(0,Hrz.shape[0]/2-1):
 	
-	for ir in xrange(0,Hrz.shape[0]/2):
-	
-		Hrz[-ir+Hrz.shape[0]/2,:]=Hrz[ir+1+Hrz.shape[0]/2,:]   #this needs to be tested for both even and odd numbers of bins 
+		Hrz[-ir+Hrz.shape[0]/2,:]=Hrz[ir+2+Hrz.shape[0]/2,:]   #this needs to be tested for both even and odd numbers of bins 
 	
 	XMG, YMG = np.meshgrid(XEV, YEV)#-eyev)
+	dx1=XMG[0,1]-XMG[0,0]
 	
-	plt.pcolormesh(XMG[:-1,:], YMG[:-1,:], Hrz.T,vmin=0.0,vmax=np.amax(Hrz))
+	print dx1
+	print dx1/2.0
+	# raw_input("inpt")
+	
+	plt.pcolormesh(XMG[:-1,:]-dx1/2.0, YMG[:-1,:], Hrz.T,vmin=0.0,vmax=np.amax(Hrz))
 	plt.savefig(path+"rzplot"+format,dpi=DPI)
 	plt.clf()
 	
-	plt.pcolormesh(XMG[:-1,:], YMG[:-1,:], np.log10(Hrz.T),vmin=np.amin(np.log10(Hrz)),vmax=np.amax(np.log10(Hrz)))
+	plt.pcolormesh(XMG[:-1,:]-dx1/2.0, YMG[:-1,:], np.log10(Hrz.T),vmin=np.amin(np.log10(Hrz)),vmax=np.amax(np.log10(Hrz)))
 	plt.savefig(path+"_log_rzplot"+format,dpi=DPI)
 	plt.clf()
 	
@@ -503,29 +508,30 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	
 #==============flat and Ewald-corrected plots=================
 	
+	# def get_pts(D,i0,i1,i2cross):
+		# for i in trange(D.shape[i0]):
+			# for j in xrange(D.shape[i1]):
+				# p1=D[ix,iy,i2cross,0]
 	
 	xypts=[]
 	xyflat=[]
-	for ix in xrange(D.shape[0]):
-		# xsq=X[ix]**2.0
+	print "xy"
+	
+	for ix in trange(D.shape[0]):
 		for iy in xrange(D.shape[1]):
 			xp=D[ix,iy,Nz/2,0]
 			yp=D[ix,iy,Nz/2,1]
-		
-		
 			theta=np.arctan(np.sqrt(xp**2.0+yp**2.0)/K_ES)
-			# xypts.append((X[ix]*np.cos(theta),Y[iy]*np.cos(theta),K_ES*(1.0-np.cos(theta))))
-			# xyflat.append((X[ix],Y[iy],0.0))
 			xypts.append((xp*np.cos(theta),yp*np.cos(theta),K_ES*(1.0-np.cos(theta))))
 			xyflat.append((xp,yp,0.0))
 			
 			
 	xzpts =[]
 	xzflat=[]
-
 	
-	for ix in xrange(D.shape[0]):
-		# xsq=X[ix]**2.0
+	print "xz"
+	
+	for ix in trange(D.shape[0]):
 		for iz in xrange(D.shape[2]):
 			xp=D[ix,Ny/2,iz,0]
 			zp=D[ix,Ny/2,iz,2]
@@ -534,10 +540,10 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 			xzflat.append((xp,0.0,zp))
 
 			
-	
+	print "yz"
 	yzpts=[]
 	yzflat=[]
-	for iy in xrange(D.shape[1]):
+	for iy in trange(D.shape[1]):
 		# ysq=Y[iy]**2.0
 		for iz in xrange(D.shape[2]):
 			yp=D[Nz/2,iy,iz,1]
@@ -554,9 +560,7 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	xyflat=np.asarray(xyflat)
 	xzflat=np.asarray(xzflat)
 	yzflat=np.asarray(yzflat)
-	
-	
-	
+		
 	EWDxy=ES(xypts)
 	EWDxz=ES(xzpts)
 	EWDyz=ES(yzpts)

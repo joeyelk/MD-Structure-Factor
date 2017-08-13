@@ -87,3 +87,10 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+#image files
+*.png
+
+#npz files
+*.npz
+*.npy

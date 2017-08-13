@@ -21,6 +21,7 @@ from tqdm import trange
 USE_BETTER_RESOLUTION=True  #ensure that resolution is never worse than requested
 PRINT_DETAILS=True    #print spatial resolution details
 
+RANDOM_NOISE=0		#this will override density with random noise
 
 Nspatialgrid=np.asarray([0.0,0.0,0.0])
 
@@ -301,45 +302,61 @@ def compute_sf(r,L,typ,out_filename,rad,ucell,Sres):
 	
 	print "Calculating Structure factor for ",r.shape[1]," atoms over ",r.shape[0], " timesteps. \n" ,"Progress: "
 	
-	for it in tqdm.tqdm(xrange(r.shape[0]),unit='timestep'):  #loop over timestep
+	Ntimesteps=r.shape[0]
+	if RANDOM_NOISE>0:
+		Ntimesteps*=1
+		print "*"*80
+		print "*"*80
+		print "OVERRIDING DENSITY WITH RANDOM NOISE"
+		print Ntimesteps, "timesteps"
+		print "*"*80
+		print "*"*80
+		
 	
-			for im in tqdm.tqdm(xrange(r.shape[1]),unit='atoms'): #loop over atoms
+	for it in tqdm.tqdm(xrange(Ntimesteps),unit='timesteps'):  #loop over timestep
+	
+			if RANDOM_NOISE>0:
 
-				ir=(r[it,im,:]/dr).astype(int)  #get integer coordinates of atoms
+				d1=np.random.rand(int(Nspatialgrid[0]),int(Nspatialgrid[1]),int(Nspatialgrid[2]))  		#density[x,y,z]
+			else:
+		
+				for im in tqdm.tqdm(xrange(r.shape[1]),unit='atoms'): #loop over atoms
+
+					ir=(r[it,im,:]/dr).astype(int)  #get integer coordinates of atoms
+					
+		
+					Ax=np.int(bdict[typ[im]][0])  
+					Ay=np.int(bdict[typ[im]][1])
+					Az=np.int(bdict[typ[im]][2])
+					
+					ix0=ir[0]-Ax+Nborder
+					ix1=ir[0]+Ax+Nborder
+					iy0=ir[1]-Ay+Nborder
+					iy1=ir[1]+Ay+Nborder
+					iz0=ir[2]-Az+Nborder
+					iz1=ir[2]+Az+Nborder
+					
+					buf=r[it,im,:]-grid[ix0:ix1,iy0:iy1,iz0:iz1,:3]
+					
+					#print "buf ",buf.shape
+									
+					
+					#distSQ=buf[...,0]**2+buf[...,1]**2+buf[...,2]**2 
+					#distSQ=np.einsum('ijkl,ml->ijkm',buf,ucell)
+					
+					buf2=np.einsum('ml,ijkm',ucell,buf)
+					# buf2=buf
+					
+					distSQ=buf2[...,0]**2+buf2[...,1]**2+buf2[...,2]**2 
+					
+					
+					sig=rad[typ[im]][1]	#width of gaussian
+					Nel=rad[typ[im]][0]	#electron number
+					
+					d0[ix0:ix1,iy0:iy1,iz0:iz1]+=(Nel/np.power(sig,3.))*np.exp(-distSQ / (2 * np.power(sig, 2.)))  
+					#print dr[0]*dr[1]*dr[2]*np.sum(d0)/np.power(2.0*math.pi,1.5)  #use this to verify normalization
 				
-	
-				Ax=np.int(bdict[typ[im]][0])  
-				Ay=np.int(bdict[typ[im]][1])
-				Az=np.int(bdict[typ[im]][2])
-				
-				ix0=ir[0]-Ax+Nborder
-				ix1=ir[0]+Ax+Nborder
-				iy0=ir[1]-Ay+Nborder
-				iy1=ir[1]+Ay+Nborder
-				iz0=ir[2]-Az+Nborder
-				iz1=ir[2]+Az+Nborder
-				
-				buf=r[it,im,:]-grid[ix0:ix1,iy0:iy1,iz0:iz1,:3]
-				
-				#print "buf ",buf.shape
-								
-				
-				#distSQ=buf[...,0]**2+buf[...,1]**2+buf[...,2]**2 
-				#distSQ=np.einsum('ijkl,ml->ijkm',buf,ucell)
-				
-				buf2=np.einsum('ml,ijkm',ucell,buf)
-				# buf2=buf
-				
-				distSQ=buf2[...,0]**2+buf2[...,1]**2+buf2[...,2]**2 
-				
-				
-				sig=rad[typ[im]][1]	#width of gaussian
-				Nel=rad[typ[im]][0]	#electron number
-				
-				d0[ix0:ix1,iy0:iy1,iz0:iz1]+=(Nel/np.power(sig,3.))*np.exp(-distSQ / (2 * np.power(sig, 2.)))  
-				#print dr[0]*dr[1]*dr[2]*np.sum(d0)/np.power(2.0*math.pi,1.5)  #use this to verify normalization
-			
-			d1=remap_grid_tcl(d0,des_tcl,ori_tcl)			#remap density onto periodic cell
+				d1=remap_grid_tcl(d0,des_tcl,ori_tcl)			#remap density onto periodic cell
 			
 			
 			# plt.contourf(d1[:,:,d1.shape[2]/2])

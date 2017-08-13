@@ -48,9 +48,10 @@ parser.add_argument('-LZ', '--lattice_z', default=1, type=int, help='set this to
 parser.add_argument('-LL', '--lattice_label', default="R3", type=str, help='set this to specify the element label of lattice particles')
 
 parser.add_argument('-SR', '--spatial_resolution', default=1.0, type=float,help='set this to specify the spatial resolution for the density grid')
-
+parser.add_argument('-RN', '--random_noise', default=0, type=int,help='set this to a positive value to use random noise for testing.  A conventional trajectory must still be loaded.  The number of timesteps to be used will be scaled by this integer')
+parser.add_argument('-RS', '--random_seed', default=1, type=int,help='Set the random seed from the command line')
  
-
+ 
 
 theta=math.pi/3.0  #theta for monoclinic unit cell
 # theta=math.pi/6.0  #theta for monoclinic unit cell
@@ -59,6 +60,12 @@ ucell=np.array([[1,0,0],[np.cos(theta),np.sin(theta),0],[0,0,1]])
 
 
 args=parser.parse_args()
+np.random.seed=args.random_seed #args.random_noise
+
+if args.random_noise>0:
+	
+	dens.RANDOM_NOISE=args.random_noise
+
 
 
 if len(args.input)>0:
@@ -145,7 +152,6 @@ if Nlat>0:
 	
 	dens.compute_sf(coords,dims,typ,sfname,rad,ucell,args.spatial_resolution)		#compute time-averaged 3d structure factor and save to sfname.npz
 	
-
 
 
 elif args.random_counts>0:	#create a random trajectory
