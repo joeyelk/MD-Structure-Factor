@@ -30,6 +30,7 @@ text="Structure Factor"			#label
 PLOT_EWALDS=True 	#enable ewald-corrected SF plots
 savelog=True		#save log(SF)
 savelin=True		#save SF
+NBINSRAD=0			#Number of bins in Radial plot
 
 normplot=1 			#normalize plots
 
@@ -360,9 +361,31 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	if not os.path.exists(path):
 		os.makedirs(path)
 		
-	X =D[:,0,0,0].copy()  
+	X =D[:,0,0,0].copy()
 	Y =D[0,:,0,1].copy()
 	Z =D[0,0,:,2].copy()
+	
+	
+	if NBINSRAD>0:
+		XBNSRD=np.linspace(-NBINSRAD,NBINSRAD,num=NBINSRAD*2)
+		XBNSRD=np.sqrt(np.abs(XBNSRD))*np.sign(XBNSRD)
+		XBNSRD*=(X[-1]/XBNSRD[-1])
+		
+	else:
+		XBNSRD=X
+	
+	dx1=X[1+X.shape[0]/2]-X[X.shape[0]/2]
+	
+	
+	# XBNSRD=np.sqrt(np.abs(X))*np.sign(X)#np.sqrt(X[X.shape[0]/2:])
+	
+	# XBNSRD=X*4
+	
+	
+	# print XBNSRD
+	# print "="*50
+	# print X[X.shape[0]/2:]
+	# exit()
 	
 	
 	SF=D[:,:,:,3]
@@ -465,12 +488,27 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	#EWDxyz=EWDxyz.reshape(xyzpts.shape[0]/D.shape[2],D.shape[2])
 	rpts=np.sqrt(xyzpts[:,0]**2.0+xyzpts[:,1]**2.0)
 	
-	Hcount,XEC,YEC=np.histogram2d(rpts,xyzpts[:,2],bins=(X,Z))
 	
-	Hval,XEV,YEV=np.histogram2d(rpts,xyzpts[:,2],weights=EWDxyz,normed=True,bins=(X,Z))
+
+	
+	Hcount,XEC,YEC=np.histogram2d(rpts,xyzpts[:,2],bins=(XBNSRD,Z))
+	
+	Hval,XEV,YEV=np.histogram2d(rpts,xyzpts[:,2],weights=EWDxyz,normed=False,bins=(XBNSRD,Z))
 
 	switch1=True
 	
+	# print XBNSRD
+	# raw_input("inpt")
+	
+	# print XEV
+	# raw_input("XEV")
+	# print YEV
+	# raw_input("YEV")
+	
+	# print Hval[:,Hval.shape[1]/2]
+	# raw_input("Hval")
+	# print Hcount[:,Hcount.shape[1]/2]
+	# raw_input("Hcount")
 	
 	
 	if switch1:
@@ -478,15 +516,18 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 		
 	Hrz=Hval/Hcount
 	
+	# print Hrz[:,Hrz.shape[1]/2+4]
+	# raw_input("Hrz")
+	
 	if not switch1:
 		Hrz = np.ma.masked_invalid(Hrz)
 	
 	for ir in xrange(0,Hrz.shape[0]/2-1):
 	
-		Hrz[-ir+Hrz.shape[0]/2,:]=Hrz[ir+2+Hrz.shape[0]/2,:]   #this needs to be tested for both even and odd numbers of bins 
+		Hrz[-ir+Hrz.shape[0]/2,:]=Hrz[ir+1+Hrz.shape[0]/2,:]   #this needs to be tested for both even and odd numbers of bins 
 	
 	XMG, YMG = np.meshgrid(XEV, YEV)#-eyev)
-	dx1=XMG[0,1]-XMG[0,0]
+	#dx1=0.0#XMG[0,1]-XMG[0,0]
 	
 	print dx1
 	print dx1/2.0

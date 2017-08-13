@@ -51,7 +51,7 @@ parser.add_argument('-SR', '--spatial_resolution', default=1.0, type=float,help=
 parser.add_argument('-RN', '--random_noise', default=0, type=int,help='set this to a positive value to use random noise for testing.  A conventional trajectory must still be loaded.  The number of timesteps to be used will be scaled by this integer')
 parser.add_argument('-RS', '--random_seed', default=1, type=int,help='Set the random seed from the command line')
  
- 
+parser.add_argument('-NBR', '--number_bins_rad', default=0, type=int,help='Set this to a nonzero value to use that many radial bins.  These bins will be scaled such that they contain roughly the same number of points') 
 
 theta=math.pi/3.0  #theta for monoclinic unit cell
 # theta=math.pi/6.0  #theta for monoclinic unit cell
@@ -61,6 +61,7 @@ ucell=np.array([[1,0,0],[np.cos(theta),np.sin(theta),0],[0,0,1]])
 
 args=parser.parse_args()
 np.random.seed=args.random_seed #args.random_noise
+p2d.NBINSRAD=args.number_bins_rad
 
 if args.random_noise>0:
 	
