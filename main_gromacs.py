@@ -61,18 +61,21 @@ parser.add_argument('-NBR', '--number_bins_rad', default=0, type=int,help='Set t
 # tdict={"orth":2.0,"hex":3.0}
 # helpstring=''.join([i+" pi/"+str(j) for i,j in tdict.iteritems()])
 # parser.add_argument('--cs','--cell_style' default="orth", type=str,help="choose cell type from "+helpstring) 
-parser.add_argument('-ct','--cell_theta' default=90.0, type=str,help="choose cell theta (in degrees)") 
+parser.add_argument('-ct','--cell_theta', default=90.0, type=str,help="choose cell theta (in degrees)") 
 
 # theta=math.pi/3.0  #theta for monoclinic unit cell
 # theta=math.pi/6.0  #theta for monoclinic unit cell
 # theta=math.pi/2.0
 
 # theta=math.pi/tdict[args.cell_style]
+args=parser.parse_args()
+
+
 theta=args.cell_theta*math.pi/180.0
 ucell=np.array([[1,0,0],[np.cos(theta),np.sin(theta),0],[0,0,1]])
 
 
-args=parser.parse_args()
+
 np.random.seed=args.random_seed #args.random_noise
 p2d.NBINSRAD=args.number_bins_rad
 
@@ -80,12 +83,13 @@ if args.random_noise>0:
 	
 	dens.RANDOM_NOISE=args.random_noise
 
-traj_extension={"gromacs":".gro","namd":".psf"}
+top_extension={"gromacs":".gro","namd":".psf"}
+traj_extension={"gromacs":".trr","namd":".dcd"}
 
 if len(args.input)>0:
 	basename=args.input
-	top_file=args.input+traj_extension[args.traj_format.lower()]
-	traj_file=args.input+".trr"
+	top_file=args.input+top_extension[args.traj_format.lower()]
+	traj_file=args.input+traj_extension[args.traj_format.lower()]
 else:
 	top_file=args.topology
 	traj_file=args.trajectory
@@ -212,7 +216,7 @@ else:  #load trajectory or npz file
 				print "processing trajectory file "+traj_file
 				if args.traj_format=="gromacs":
 					lt.process_gro(top_file,traj_file,tfname,args.TRstride)   					#Process trajectory into numpy array.  
-				elif args.traj_format.lower()=="namd"
+				elif args.traj_format.lower()=="namd":
 					lt.process(top_file,traj_file,tfname,args.TRstride)
 				print 'done'
 				
