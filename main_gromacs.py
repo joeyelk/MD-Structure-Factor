@@ -28,6 +28,11 @@ parser.add_argument('-traj', '--trajectory', default='', type=str, help='Input t
 
 #other simulation parameters
 parser.add_argument('-fi', '--first_frame', default=0, type=int, help='frame to start at')
+parser.add_argument('-SFstride', default=1, type=int, help='stride to use for computing SF')
+
+parser.add_argument("-tf","--traj_format",default="gromacs",type=str,help='format of MD trajectory file to load')
+
+
 parser.add_argument('-fr', '--force_recompute', default=0, type=int, help='force recomputing SF (if >=1) or trajectory and SF(if >=2)')
 
 #random trajectory parameters
@@ -53,9 +58,16 @@ parser.add_argument('-RS', '--random_seed', default=1, type=int,help='Set the ra
  
 parser.add_argument('-NBR', '--number_bins_rad', default=0, type=int,help='Set this to a nonzero value to use that many radial bins.  These bins will be scaled such that they contain roughly the same number of points') 
 
-theta=math.pi/3.0  #theta for monoclinic unit cell
+# tdict={"orth":2.0,"hex":3.0}
+# helpstring=''.join([i+" pi/"+str(j) for i,j in tdict.iteritems()])
+# parser.add_argument('--cs','--cell_style' default="orth", type=str,help="choose cell type from "+helpstring) 
+
+# theta=math.pi/3.0  #theta for monoclinic unit cell
 # theta=math.pi/6.0  #theta for monoclinic unit cell
 # theta=math.pi/2.0
+
+# theta=math.pi/tdict[args.cell_style]
+theta=args.cell_theta*math.pi/180.0
 ucell=np.array([[1,0,0],[np.cos(theta),np.sin(theta),0],[0,0,1]])
 
 
@@ -67,11 +79,11 @@ if args.random_noise>0:
 	
 	dens.RANDOM_NOISE=args.random_noise
 
-
+traj_extension={"gromacs":".gro","namd":".psf"}
 
 if len(args.input)>0:
 	basename=args.input
-	top_file=args.input+".gro"
+	top_file=args.input+traj_extension[args.traj_format.lower()]
 	traj_file=args.input+".trr"
 else:
 	top_file=args.topology
@@ -189,15 +201,31 @@ else:  #load trajectory or npz file
 
 	if args.force_recompute>0 or not os.path.isfile(sfname+".npz"):			#check to see if SF needs to be calculated
 		if args.force_recompute>1 or not os.path.isfile(tfname+".npz"): 		#check to see if trajectory needs to be processed
+			print sfname
+			print tfname
 			if platform.system()=="Windows":  										#This part must be done in an environment that can import MDAnalysis
 				print "Unable to process trajectory file on Windows"
 				exit()
 			else:
 				print "processing trajectory file "+traj_file
-				lt.process_gro(top_file,traj_file,tfname)   					#Process trajectory into numpy array.  
+				if args.traj_format=="gromacs":
+					lt.process_gro(top_file,traj_file,tfname)   					#Process trajectory into numpy array.  
+				elif args.traj_format.lower()=="namd"
+					lt.process(top_file,traj_file,tfname)
 				print 'done'
 				
 		traj=np.load(tfname+".npz")							#load processed trajectory
+		print "trajectory file",tfname+".npz", "loaded"
+		
+		print type(traj["coords"])
+		# coords=traj["coords"]
+		
+		# print .shape
+		# for i in traj:
+			# print i #,val.shape
+		# print traj.shape
+		exit()
+		
 		rad=dens.load_radii("radii.txt")					#load radii definitions from file
 
 		
