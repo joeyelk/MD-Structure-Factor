@@ -54,7 +54,7 @@ def process_gro(topology_filename,trajectory_filename,output_filename,stride):
 		im+=1
 	it=0
 
-	for ts,icount in tqdm.tqdm(enumerate(u.trajectory)):
+	for icount,ts in tqdm.tqdm(enumerate(u.trajectory)):
 		if icount%stride==0:
 			dims[it,:]=ts.dimensions[0:3]
 			coords[it,:,:]=ts.positions
