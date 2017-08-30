@@ -28,7 +28,7 @@ parser.add_argument('-traj', '--trajectory', default='', type=str, help='Input t
 
 #other simulation parameters
 parser.add_argument('-fi', '--first_frame', default=0, type=int, help='frame to start at')
-parser.add_argument('-SFstride', default=1, type=int, help='stride to use for computing SF')
+parser.add_argument('-TRstride', default=1, type=int, help='stride to use for computing SF')
 
 parser.add_argument("-tf","--traj_format",default="gromacs",type=str,help='format of MD trajectory file to load')
 
@@ -61,6 +61,7 @@ parser.add_argument('-NBR', '--number_bins_rad', default=0, type=int,help='Set t
 # tdict={"orth":2.0,"hex":3.0}
 # helpstring=''.join([i+" pi/"+str(j) for i,j in tdict.iteritems()])
 # parser.add_argument('--cs','--cell_style' default="orth", type=str,help="choose cell type from "+helpstring) 
+parser.add_argument('-ct','--cell_theta' default=90.0, type=str,help="choose cell theta (in degrees)") 
 
 # theta=math.pi/3.0  #theta for monoclinic unit cell
 # theta=math.pi/6.0  #theta for monoclinic unit cell
@@ -205,13 +206,14 @@ else:  #load trajectory or npz file
 			print tfname
 			if platform.system()=="Windows":  										#This part must be done in an environment that can import MDAnalysis
 				print "Unable to process trajectory file on Windows"
+				print "This part must be done in an environment that can import MDAnalysis"
 				exit()
 			else:
 				print "processing trajectory file "+traj_file
 				if args.traj_format=="gromacs":
-					lt.process_gro(top_file,traj_file,tfname)   					#Process trajectory into numpy array.  
+					lt.process_gro(top_file,traj_file,tfname,args.TRstride)   					#Process trajectory into numpy array.  
 				elif args.traj_format.lower()=="namd"
-					lt.process(top_file,traj_file,tfname)
+					lt.process(top_file,traj_file,tfname,args.TRstride)
 				print 'done'
 				
 		traj=np.load(tfname+".npz")							#load processed trajectory
