@@ -214,10 +214,12 @@ else:  #load trajectory or npz file
 				exit()
 			else:
 				print "processing trajectory file "+traj_file
-				if args.traj_format=="gromacs":
-					lt.process_gro(top_file,traj_file,tfname,args.TRstride)   					#Process trajectory into numpy array.  
-				elif args.traj_format.lower()=="namd":
-					lt.process(top_file,traj_file,tfname,args.TRstride)
+				
+				lt.process(top_file,traj_file,tfname,args.TRstride)   					#Process trajectory into numpy array.  
+				# if args.traj_format=="gromacs":
+					# lt.process_gro(top_file,traj_file,tfname,args.TRstride)   					#Process trajectory into numpy array.  
+				# elif args.traj_format.lower()=="namd":
+					# lt.process(top_file,traj_file,tfname,args.TRstride)
 				print 'done'
 				
 		traj=np.load(tfname+".npz")							#load processed trajectory
@@ -230,7 +232,7 @@ else:  #load trajectory or npz file
 		# for i in traj:
 			# print i #,val.shape
 		# print traj.shape
-		exit()
+		# exit()
 		
 		rad=dens.load_radii("radii.txt")					#load radii definitions from file
 

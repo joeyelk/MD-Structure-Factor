@@ -32,6 +32,9 @@ savelog=True		#save log(SF)
 savelin=True		#save SF
 NBINSRAD=0			#Number of bins in Radial plot
 
+FP_THRESHOLD=1.0E-12	#used to check for floating point zero value-anything less than this is considered zero (used in determining whether to use fast interpolation for ortho grid)
+
+
 normplot=1 			#normalize plots
 
 title_fontsize=9
@@ -433,16 +436,19 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	lbuf=True
 	for i in xrange(3):
 		for j in xrange(i+1,3):
-			if ucell[i,j]!=0 or ucell[j,i]!=0:
+			if ucell[i,j]>FP_THRESHOLD or ucell[j,i]>FP_THRESHOLD:	#floating point rounding
 				lbuf=False
 				
 	print "Interpolating grid..."
 	
+	print ucell
+	
 	if ucell[0,0]==ucell[1,1] and ucell[0,0]==ucell[2,2] and lbuf:
 	# if True:
+		print "using fast interpolation for orthorhombic cell"
 		ES = RegularGridInterpolator((X, Y, Z), SF,bounds_error=False)  #can be used in case of orthorhombic unit cell
 	else:
-		
+		print "Interpolating non-orthorhombic cell"
 		dtime=480.0*XGD.size/(98*98*99)  #empirical time estimate
 		
 		print "interpolation time estimate: ", round(dtime/60,1) , " minutes, finishing around ", (datetime.datetime.now()+datetime.timedelta(seconds=dtime)).strftime('%I:%M %p')
