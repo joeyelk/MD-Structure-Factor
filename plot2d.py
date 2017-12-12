@@ -13,6 +13,8 @@ import math
 from tqdm import trange
 import time
 import datetime
+import matplotlib
+matplotlib.rc('axes', color_cycle=['r', 'g', 'b', '#004060'])
 
 mainlabel = ""
 
@@ -145,7 +147,7 @@ def radial_integrate(D, Nbins, outputname):
     H[:1] = 0.0
     H /= np.amax(H)
     plt.plot(E[:-1], H)
-    plt.ylim(0, 0.2)
+    plt.ylim(0, 0.5)
     plt.xlim(0.1, 0.5)
     plt.savefig(outputname, dpi=DPI)
 
@@ -314,6 +316,8 @@ def Plot_Ewald_Sphere_Correction(D, wavelength_angstroms, cscale=1, lcscale=1, *
 
 def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass full 3d data,SF,wavelength in angstroms
 
+    rzscale=kwargs["rzscale"]    
+
     if not os.path.exists(path):
         os.makedirs(path)
 
@@ -448,19 +452,86 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
 
     XMG, YMG = np.meshgrid(XEV, YEV)
 
-    plt.pcolormesh(XMG[:-1, :], YMG[:-1, :], Hrz.T, vmin=0.0, vmax=2*np.amax(Hrz))
-    plt.ylim(np.amin(YMG), np.amax(YMG))
-    plt.xlim(np.amin(XMG), np.amax(XMG))
-    # plt.ylim(-2.5, 2.5)
-    # plt.xlim(-2.5, 2.5)
-    # plt.xlabel('$q_r$', fontsize=14)
-    # plt.ylabel('$q_z$', fontsize=14)
-    # plt.axes().set_aspect('equal')
-    # plt.axes().tick_params(labelsize=14)
+    m = np.amax(Hrz[:, :-49])  # 49 for full sized thing a majig, 23 for half size
+    # exit()
+    # m = 0.00832122075357 # offset
+    # m = 0.00935587721282  # layered
 
-    plt.savefig(path+"rzplot"+format, dpi=DPI)
-    plt.clf()
+    fig, ax = plt.subplots()
+    #plt.pcolormesh(XMG[:-1, :], YMG[:-1, :], Hrz.T, vmin=0.0, vmax=rzscale*np.amax(Hrz), cmap='viridis')
+    heatmap = ax.pcolormesh(XMG[:-1, :], YMG[:-1, :], Hrz.T/m, vmin=0.0, vmax=1.0, cmap='jet')  # jet matches experiment
+    # heatmap = ax.pcolormesh(XMG[:-50, :-49], YMG[:-50, :-49], Hrz.T[:-49, :-49]/m, vmin=0.0, vmax=1.0, cmap='jet')  # jet matches experiment
 
+    ## Use this block (and comment out previous line to plot raw waxs data ##
+    # waxs = np.load('/home/bcoscia/PycharmProjects/MD-Structure-Factor/waxs.npy')
+    # qmax = 2.5
+    # heatmap = ax.imshow(waxs, cmap='jet', extent=[-qmax, qmax, -qmax, qmax])
+    ## end ##
+
+    cbar = plt.colorbar(heatmap)
+    from matplotlib import ticker
+    tick_locator = ticker.MaxNLocator(nbins=5)
+    cbar.locator = tick_locator
+    cbar.update_ticks()
+    cbar.ax.set_yticklabels(['0', '0.2', '0.4', '0.6', '0.8', '1'])
+
+    # x = XMG[0, :]
+    # y = YMG[:, 0]
+    #
+    # bins = 40
+    # angles = np.zeros([bins])
+    # norm = np.zeros([bins])
+    #
+    # area_to_integrate = np.zeros([x.shape[0], y.shape[0]])
+    # r_inner = 1.1
+    # r_outer = 1.7
+    # for i in range(x.shape[0]):
+    #     for k in range(y.shape[0]):
+    #         if r_inner <= np.linalg.norm([x[i], y[k]]) <= r_outer:
+    #             area_to_integrate[i, k] = Hrz[i, k]
+    #             angle = np.arctan(y[k]/x[i]) * (180/np.pi)
+    #
+    #             bin = int((bins/2) + ((angle/90)*(bins/2)))
+    #             if bin == bins:
+    #                 bin -= 1
+    #
+    #             angles[bin] += Hrz[i, k]
+    #             norm[bin] += 1
+    #
+    # avg = angles / norm  # normalize intensities so it is on a per count basis
+    # avg /= np.sum(np.ma.masked_invalid(avg))
+    #
+    # angles = np.linspace(-90, 90, bins + 1)  # We will only see angles in the range of -90 to 90 since we use np.arctan
+    # bin_angles = np.array([(angles[i] + angles[i + 1])/2 for i in range(bins)])  # bars will be placed in the middle of the bins
+    # width = angles[1] - angles[0]  # width of bins
+    #
+    # keep = np.array([i for i in range(len(avg)) if not np.isnan(avg[i])])
+    #
+    # plt.figure()
+    # plt.bar(bin_angles[keep], avg[keep], width=width, color='#1f77b4')
+    # plt.xlabel('Angle with x axis', fontsize=14)
+    # plt.ylabel('Normalized integrated intensity', fontsize=14)
+    # plt.gcf().get_axes()[0].tick_params(labelsize=14)
+    # plt.tight_layout()
+    # plt.savefig('angle_v_I.png')
+    # # plt.imshow(area_to_integrate.T)
+    # plt.show()
+    # exit()
+
+    # fig.ylim(np.amin(YMG), np.amax(YMG))
+    # fig.xlim(np.amin(XMG), np.amax(XMG))
+    #
+
+    plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
+    plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
+    plt.gcf().get_axes()[0].set_xlabel('$q_r$', fontsize=14)
+    plt.gcf().get_axes()[0].set_ylabel('$q_z$', fontsize=14)
+    plt.gcf().get_axes()[0].set_aspect('equal')
+    plt.gcf().get_axes()[0].tick_params(labelsize=14)
+    plt.tight_layout()
+    fig.savefig(path+"rzplot"+format, dpi=DPI)
+    fig.clf()
+    exit()
     measure_intensity = False
 
     if measure_intensity:

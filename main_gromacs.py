@@ -56,7 +56,8 @@ parser.add_argument('-RS', '--random_seed', default=1, type=int,help='Set the ra
 
 parser.add_argument('-NBR', '--number_bins_rad', default=0, type=int,help='Set this to a nonzero value to use that many'
                     'radial bins.  These bins will be scaled such that they contain roughly the same number of points')
-
+parser.add_argument('--rzscale', default=1, type=float
+)
 args = parser.parse_args()
 
 location = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))  # Directory this script is in
@@ -200,12 +201,12 @@ print("making plots...")
 if True:
     print("Ewald plots")
     p2d.path = EWdir
-    p2d.Plot_Ewald_triclinic(grid, XRAY_WAVELENGTH, ucell, args.ewload)		#compute Ewald-corrected SF cross sections in xy,xz,yz planes
+    p2d.Plot_Ewald_triclinic(grid, XRAY_WAVELENGTH, ucell, args.ewload, rzscale=args.rzscale)		#compute Ewald-corrected SF cross sections in xy,xz,yz planes
     print("EW done")
 if True:
     print("xy,yz,xz plots")
     p2d.path = dir + sfdir
-    p2d.radial_integrate(grid, 300, dir+"radial.png")
+    p2d.radial_integrate(grid, 750, dir+"radial.png")
 
 if False:  #additional slices through SF
     print("additional plots")
