@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt  #must be imported after anything that imports m
 import argparse
 
 XRAY_WAVELENGTH=1.54
-
+TRANSFORM_MONOCLINIC=True
 
 parser = argparse.ArgumentParser(description='Calculate 3d Structure Factor')
 #File names
@@ -61,7 +61,7 @@ parser.add_argument('-NBR', '--number_bins_rad', default=0, type=int,help='Set t
 # tdict={"orth":2.0,"hex":3.0}
 # helpstring=''.join([i+" pi/"+str(j) for i,j in tdict.iteritems()])
 # parser.add_argument('--cs','--cell_style' default="orth", type=str,help="choose cell type from "+helpstring) 
-parser.add_argument('-ct','--cell_theta', default=90.0, type=str,help="choose cell theta (in degrees)") 
+parser.add_argument('-ct','--cell_theta', default=90.0, type=float,help="choose cell theta (in degrees)") 
 
 # theta=math.pi/3.0  #theta for monoclinic unit cell
 # theta=math.pi/6.0  #theta for monoclinic unit cell
@@ -226,6 +226,13 @@ else:  #load trajectory or npz file
 		print "trajectory file",tfname+".npz", "loaded"
 		
 		print type(traj["coords"])
+		T=traj['coords']		
+		
+		if TRANSFORM_MONOCLINIC and theta!=90.0:	
+			print "transforming coordinates to monoclinic cell (theta={0:f} deg)".format(theta*180.0/np.pi)
+			T[...,1]=T[...,1]/np.sin(theta)
+			T[...,0]=T[...,0]-T[...,1]*np.cos(theta)
+		
 		# coords=traj["coords"]
 		
 		# print .shape
@@ -237,7 +244,7 @@ else:  #load trajectory or npz file
 		rad=dens.load_radii("radii.txt")					#load radii definitions from file
 
 		
-		dens.compute_sf(traj['coords'][args.first_frame:,...],traj['dims'][args.first_frame:,...],traj['typ'],sfname,rad,ucell,args.spatial_resolution)		#compute time-averaged 3d structure factor and save to sfname.npz
+		dens.compute_sf(T[args.first_frame:,...],traj['dims'][args.first_frame:,...],traj['typ'],sfname,rad,ucell,args.spatial_resolution)		#compute time-averaged 3d structure factor and save to sfname.npz
 
 
 print "reloading SF..."
