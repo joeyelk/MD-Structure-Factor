@@ -4,6 +4,7 @@ import os
 from scipy.interpolate import RegularGridInterpolator
 from scipy.interpolate import griddata
 from scipy.interpolate import LinearNDInterpolator
+from scipy.interpolate import NearestNDInterpolator
 import math
 import tqdm
 from tqdm import trange
@@ -457,7 +458,14 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 		#ES = griddata(DC.reshape(DC.size/3,3), VGD.ravel(), (grid_x,grid_y,grid_z),method='linear')  #485s
 		coords=zip(XGD.ravel(),YGD.ravel(),ZGD.ravel())
 		
-		ES= LinearNDInterpolator(coords,VGD.ravel())
+		if False:
+			ES= LinearNDInterpolator(coords,VGD.ravel())
+		else:
+			ES= NearestNDInterpolator(coords,VGD.ravel())		#testing this function
+	
+		
+		
+		
 		end=time.time()	
 		print "interpolation finished, taking", end-start, "seconds"
 
