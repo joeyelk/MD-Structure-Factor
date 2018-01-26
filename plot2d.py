@@ -470,7 +470,14 @@ def PLOT_RAD_NEW(D,wavelength_angstroms,ucell,**kwargs):
 		
 		plt.colorbar()
 		plt.savefig('difference.png')
-	
+
+def to_monoclinic(coords,ucell):		#monoclinic for now
+	out=coords.copy()
+	out[...,1]/=ucell[1,1]
+	out[...,0]-=out[...,1]*ucell[1,0]
+	return out
+		
+		
 def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d data,SF,wavelength in angstroms
 	
 	PLOT_RAD_NEW(D,wavelength_angstroms,ucell,**kwargs)
