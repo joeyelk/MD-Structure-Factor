@@ -359,8 +359,123 @@ def Plot_Ewald_Sphere_Correction(D,wavelength_angstroms,ucell=[],**kwargs):  #pa
 	plt.contourf(D[0,:,:,1],D[0,:,:,2],np.log(EWDyz),contours,**kwargs)
 	plt.savefig(path+fname+"yzlog"+format,dpi=DPI)
 	plt.clf()
-
+	
+def PLOT_RAD_NEW(D,wavelength_angstroms,ucell,**kwargs):
+	if not os.path.exists(path):
+		os.makedirs(path)
+		
+	X=D[:,0,0,0]
+		
+	Y=D[0,:,0,1]
+	Z=D[0,0,:,2]
+	SF=D[...,3]
+		
+	ES = RegularGridInterpolator((X, Y, Z), SF,bounds_error=False)
+	
+	THETA_BINS_PER_INV_ANG=20.
+	MIN_THETA_BINS=10		#minimum allowed bins
+	RBINS=400		
+	NLEVELS=200		#number of levels for contour plots
+	
+	MIN=0.5
+	MAX=1.5
+	
+	ZBINS=Z.shape[0]	#400
+	
+	XR=(X[-1]-X[0])*ucell[0][0]
+	YR=(Y[-1]-Y[0])*ucell[1][1]
+	
+	Rmax=min(XR,YR)/2.0
+	Rmax*=0.95
+	
+	rarr,rspace=np.linspace(0.0,Rmax,RBINS,retstep=True)
+	zar=np.linspace(Z[0],Z[-1],ZBINS)
+	
+	oa=np.zeros((rarr.shape[0],zar.shape[0]))			
+	circ=2.*np.pi*rarr											#circumference
+	for ir in trange(rarr.shape[0]):
+		
+		NTHETABINS=max(int(THETA_BINS_PER_INV_ANG*circ[ir]),MIN_THETA_BINS)	#calculate number of bins at this r
+		thetas=np.linspace(0.0,np.pi*2.0,NTHETABINS,endpoint=False)		#generate theta array
+		
+		t,r,z=np.meshgrid(thetas,rarr[ir],zar)							#generate grid of cylindrical points
+		
+		xar=r*np.cos(t)													#set up x,y coords
+		yar=r*np.sin(t)	
+		
+		pts=np.vstack((xar.ravel(),yar.ravel(),z.ravel())).T		#reshape for interpolation
+		
+		MCpts=to_monoclinic(pts,ucell)								#transform to monoclinic cell
+		
+		oa[ir,:]=np.average(ES(MCpts).reshape(r.shape),axis=1)	#store average values in final array
+		
+		
+	
+	rad_avg=np.average(oa)	
+	
+	oa/=rad_avg		#normalize
+	
+	#set up data for contourf plot
+	
+	final=np.append(oa[::-1,:],oa[1:],axis=0)		#SF
+	rfin=np.append(-rarr[::-1],rarr[1:])			#R
+	zfin=np.append(z[:,0,:],z[1:,0,:],axis=0)		#Z
+	
+	unitlab='($\AA^{-1}$)'				#Angstroms
+	
+	
+	lvls=np.linspace(MIN,MAX,NLEVELS)			#contour levels
+	
+	
+	plt.contourf(rfin,zfin[0],final.T,levels=lvls,cmap='seismic')
+	plt.colorbar()
+	
+	plt.title('S(r,z)')
+	plt.xlabel('r '+unitlab)
+	plt.ylabel('z '+unitlab)
+	plt.savefig('new_rzplot.png')
+	plt.clf()
+	
+	
+	
+	x2=np.linspace(-Rmax,Rmax,RBINS*2-1)
+	z2=np.linspace(Z[0],Z[-1],RBINS)
+	
+	xg2,yg2,zg2=np.meshgrid(x2,np.asarray(0),z2)
+	pts=np.vstack((xg2.ravel(),yg2.ravel(),zg2.ravel())).T
+	out2=ES(pts).reshape(xg2.shape[1],xg2.shape[2])
+	
+	o2n=out2[:,:]/rad_avg
+	
+	plt.contourf(xg2[0,:,:],zg2[0,:,:],o2n,levels=lvls,cmap='seismic')
+	
+	
+	plt.xlabel('x '+unitlab)
+	plt.ylabel('z '+unitlab)
+	plt.title('S(x,z)|$_{y=0}$')
+	
+	plt.colorbar()
+	plt.savefig('new_xzplot.png')
+	plt.clf()
+	
+	if False:
+		dif=o2n-final
+		lvls2=np.linspace(-0.4,0.4,100)
+		
+		plt.contourf(xg2[0,:,:],zg2[0,:,:],dif,levels=lvls2,cmap='seismic')
+		plt.xlabel('x,r '+unitlab)
+		plt.ylabel('z '+unitlab)
+		plt.title('S(r,z)-S(x,z)|$_{y=0}$')
+		
+		
+		plt.colorbar()
+		plt.savefig('difference.png')
+	
 def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d data,SF,wavelength in angstroms
+	
+	PLOT_RAD_NEW(D,wavelength_angstroms,ucell,**kwargs)
+		
+		
 		
 	if not os.path.exists(path):
 		os.makedirs(path)
