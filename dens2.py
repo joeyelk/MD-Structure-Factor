@@ -17,7 +17,7 @@ RANDOM_NOISE = 0  # this will override density with random noise
 # number of gridpoints
 Nspatialgrid = np.asarray([0.0, 0.0, 0.0])
 
-PRECISION = 1.0E-12
+PRECISION = 1.0E-24
 
 dtyp = np.float64  # float64 is default.  If there are memory issues, this can be reduced
 
@@ -183,15 +183,16 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
     :param Sres: Spatial resolution of the density grid in angstroms. This setting determines the maximum scattering
     vector which is 2*pi/Sres
     """
+    # L[0][2] *= 2
 
-    r , L = rescale(r,L)  #keep this inside compute_fft to allow coordinates to be rescaled to whichever numpy view is passed
+    r, L = rescale(r, L)  #keep this inside compute_fft to allow coordinates to be rescaled to whichever numpy view is passed
 
     Nspatialgrid = (L/Sres).astype(int)
 
     if USE_BETTER_RESOLUTION:  #ensure that resolution is never worse than requested  (should use ceil here instead)
         for i in range(3):
-             if L[i]/Nspatialgrid[i]>Sres:
-                 Nspatialgrid[i]+=1
+             if L[i]/Nspatialgrid[i] > Sres:
+                 Nspatialgrid[i] += 1
     for i in range(3):  #ensure Nspatialgrid is even
         Nspatialgrid[i] += Nspatialgrid[i] % 2
     if PRINT_DETAILS:    #print spatial resolution details
@@ -207,7 +208,7 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
 
     dr = np.divide(L, Nspatialgrid)
 
-    zv = [0.0, 0.0, 0.0] #zero vector
+    zv = [0.0, 0.0, 0.0]  # zero vector
 
     BUFFSIZE = 1000000
     print("remapping coordinates into periodic cell")
@@ -244,7 +245,7 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
 
     print(d0.nbytes/(2**20.0), "MB")
 
-    sf = np.zeros([int(Nspatialgrid[0]), int(Nspatialgrid[1]), int(Nspatialgrid[2]/2) + 1], dtype=dtyp)  								#3d Structure factor
+    sf = np.zeros([int(Nspatialgrid[0]), int(Nspatialgrid[1]), int(Nspatialgrid[2]/2) + 1], dtype=dtyp)#3d Structure factor
 
     #spatial grid.  grid[x,y,z,0] gives x coordinate of this grid position.  4th index value of 3 will ultimately store SF data
     grid=np.zeros((int(Nspatialgrid[0])+2*Nborder,int(Nspatialgrid[1])+2*Nborder,int(Nspatialgrid[2])+2*Nborder,4),dtype=dtyp)		#if this causes a MemoryError for your system, consider changing dtyp from np.float64 to np.float32 or smaller
@@ -363,4 +364,3 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
     kgridplt[:, :, :, 3] = sfplt
 
     np.savez_compressed(out_filename, sf=sf, sfplt=sfplt, L=L, N=Nspatialgrid, kgrid=kgrid, kgridplt=kgridplt)
-    exit()

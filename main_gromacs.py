@@ -17,6 +17,7 @@ import argparse
 import warnings
 
 XRAY_WAVELENGTH = 1.54
+TRANSFORM_MONOCLINIC = True
 
 parser = argparse.ArgumentParser(description='Calculate 3d Structure Factor')
 
@@ -55,9 +56,9 @@ parser.add_argument('-RN', '--random_noise', default=0, type=int,help='set this 
 parser.add_argument('-RS', '--random_seed', default=1, type=int,help='Set the random seed from the command line')
 
 parser.add_argument('-NBR', '--number_bins_rad', default=0, type=int,help='Set this to a nonzero value to use that many'
-                    'radial bins.  These bins will be scaled such that they contain roughly the same number of points')
-parser.add_argument('--rzscale', default=1, type=float
-)
+                    'radial bins. These bins will be scaled such that they contain roughly the same number of points')
+parser.add_argument('--rzscale', default=1, type=float)
+parser.add_argument('-ct', '--cell_theta', default=120.0, type=float, help="choose cell theta (in degrees)")
 args = parser.parse_args()
 
 location = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))  # Directory this script is in
@@ -162,17 +163,17 @@ elif args.random_counts > 0:	#create a random trajectory
     typ[:] = args.random_label
 
     print("saving...")
-    np.savez_compressed("RAND",dims=dims,coords=coords,name=name,typ=typ)
-    rad = dens2.load_radii("%s/radii.txt" % location) # load radii definitions from file
+    np.savez_compressed("RAND", dims=dims, coords=coords, name=name, typ=typ)
+    rad = dens2.load_radii("%s/radii.txt" % location)  # load radii definitions from file
     print("computing SF...")
 
     dens2.compute_sf(coords, dims, typ, sfname, rad, ucell, args.spatial_resolution) # compute time-averaged 3d structure
 
 else:  #load trajectory or npz file
 
-    if args.force_recompute > 0 or not os.path.isfile(sfname+".npz"):			#check to see if SF needs to be calculated
-        if args.force_recompute > 1 or not os.path.isfile(tfname+".npz"): 		#check to see if trajectory needs to be processed
-            if platform.system() == "Windows":  										#This part must be done in an environment that can import MDAnalysis
+    if args.force_recompute > 0 or not os.path.isfile(sfname+".npz"):  #check to see if SF needs to be calculated
+        if args.force_recompute > 1 or not os.path.isfile(tfname+".npz"):  #check to see if trajectory needs to be processed
+            if platform.system() == "Windows":  						#This part must be done in an environment that can import MDAnalysis
                 print("Unable to process trajectory file on Windows")
                 exit()
             else:
@@ -181,9 +182,17 @@ else:  #load trajectory or npz file
                 print('done')
 
         traj = np.load(tfname+".npz")							#load processed trajectory
+
+        T = traj['coords']
+
+        if TRANSFORM_MONOCLINIC and theta != 90.0:
+            print("transforming coordinates to monoclinic cell (theta={0:f} deg)".format(theta*180.0/np.pi))
+            T[..., 1] = T[..., 1] / np.sin(theta)
+            T[..., 0] = T[..., 0] - T[..., 1]*np.cos(theta)
+
         rad = dens2.load_radii("%s/radii.txt" % location)					#load radii definitions from file
 
-        dens2.compute_sf(traj['coords'][args.first_frame:args.end_frame,...],traj['dims'][args.first_frame:args.end_frame,...],traj['typ'],sfname,rad,ucell,args.spatial_resolution) #compute time-averaged 3d structure factor and save to sfname.npz
+        dens2.compute_sf(T[args.first_frame:args.end_frame,...],traj['dims'][args.first_frame:args.end_frame,...],traj['typ'],sfname,rad,ucell,args.spatial_resolution) #compute time-averaged 3d structure factor and save to sfname.npz
 
 print("reloading SF...")
 dpl = np.load(sfname+".npz")  # load 3d SF
@@ -212,14 +221,14 @@ if False:  #additional slices through SF
     print("additional plots")
     Nsteps = 8
     p2d.path = sfsubdir+"xplots"+fd
-    p2d.savelin = False
-    for i in tqdm.tqdm(range(0, grid.shape[0], grid.shape[0]/Nsteps)):
-        p2d.sfplot(grid[i, :, :, :])
+    p2d.savelin = True
+    for i in tqdm.tqdm(range(0, grid.shape[0], int(grid.shape[0]/Nsteps))):
+        p2d.sfplot(grid[i, :, :, :], lcscale=1)
 
     p2d.path = sfsubdir+"yplots"+fd
-    for i in tqdm.tqdm(range(0, grid.shape[1], grid.shape[1]/Nsteps)):
-        p2d.sfplot(grid[:, i, :, :])
+    for i in tqdm.tqdm(range(0, grid.shape[1], int(grid.shape[1]/Nsteps))):
+        p2d.sfplot(grid[:, i, :, :], lcscale=1)
 
     p2d.path = sfsubdir+"zplots"+fd
-    for i in tqdm.tqdm(range(0, grid.shape[1], grid.shape[2]/Nsteps)):
-        p2d.sfplot(grid[:, :, i, :])
+    for i in tqdm.tqdm(range(0, grid.shape[1], int(grid.shape[2]/Nsteps))):
+        p2d.sfplot(grid[:, :, i, :], lcscale=1)

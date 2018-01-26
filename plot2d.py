@@ -9,6 +9,7 @@ import os
 from scipy.interpolate import RegularGridInterpolator
 from scipy.interpolate import griddata
 from scipy.interpolate import LinearNDInterpolator
+from scipy.interpolate import NearestNDInterpolator
 import math
 from tqdm import trange
 import time
@@ -77,7 +78,7 @@ def csplot(X, Y, Z, contours, lab, xlab, ylab,**kwargs):
     if normplot == 1:
         cax = plt.contourf(X, Y, Z / np.amax(Z), contours, vmin=0.0, vmax=0.05, **kwargs)
     else:
-        cax = plt.contourf(X, Y, Z, contours, vmax=0.1*np.amax(Z), **kwargs)
+        cax = plt.contourf(X, Y, Z, contours, vmax=0.01*np.amax(Z), **kwargs)
 
     # ax.set_aspect((np.amax(Y)-np.amin(Y))/(np.amax(X)-np.amin(X)))
     # ax.set_aspect('auto')
@@ -314,9 +315,117 @@ def Plot_Ewald_Sphere_Correction(D, wavelength_angstroms, cscale=1, lcscale=1, *
     plt.clf()
 
 
+def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
+
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    X = D[:, 0, 0, 0]
+
+    Y = D[0, :, 0, 1]
+    Z = D[0, 0, :, 2]
+    SF = D[..., 3]
+
+    ES = RegularGridInterpolator((X, Y, Z), SF,bounds_error=False)
+
+    THETA_BINS_PER_INV_ANG = 20.
+    MIN_THETA_BINS = 10		#minimum allowed bins
+    RBINS = 400
+    NLEVELS = 200		#number of levels for contour plots
+
+    MIN = 0.5
+    MAX = 1.5
+
+    ZBINS = Z.shape[0]	#400
+
+    XR = (X[-1] - X[0])*ucell[0][0]
+    YR = (Y[-1] - Y[0])*ucell[1][1]
+
+    Rmax = min(XR,YR) / 2.0
+    Rmax *= 0.95
+
+    rarr, rspace = np.linspace(0.0, Rmax, RBINS, retstep=True)
+    zar = np.linspace(Z[0], Z[-1], ZBINS)
+
+    oa = np.zeros((rarr.shape[0],zar.shape[0]))
+    circ = 2.*np.pi*rarr											#circumference
+    for ir in trange(rarr.shape[0]):
+
+        NTHETABINS = max(int(THETA_BINS_PER_INV_ANG*circ[ir]), MIN_THETA_BINS)	#calculate number of bins at this r
+        thetas = np.linspace(0.0, np.pi*2.0, NTHETABINS, endpoint=False)		#generate theta array
+
+        t, r, z = np.meshgrid(thetas, rarr[ir], zar)							#generate grid of cylindrical points
+
+        xar = r*np.cos(t)													#set up x,y coords
+        yar = r*np.sin(t)
+
+        pts = np.vstack((xar.ravel(),yar.ravel(),z.ravel())).T		#reshape for interpolation
+
+        MCpts = to_monoclinic(pts,ucell)								#transform to monoclinic cell
+
+        oa[ir,:] = np.average(ES(MCpts).reshape(r.shape), axis=1)	#store average values in final array
+
+
+    rad_avg=np.average(oa)
+
+    oa /= rad_avg		#normalize
+
+    # set up data for contourf plot
+
+    final = np.append(oa[::-1, :], oa[1:], axis=0)		#SF
+    rfin = np.append(-rarr[::-1], rarr[1:])			#R
+    zfin = np.append(z[:, 0, :], z[1:, 0, :], axis=0)		#Z
+
+    unitlab = '($\AA^{-1}$)'				#Angstroms
+
+    lvls = np.linspace(MIN,MAX,NLEVELS)			#contour levels
+
+    plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap='seismic')
+    plt.colorbar()
+
+    plt.title('S(r,z)')
+    plt.xlabel('r ' + unitlab)
+    plt.ylabel('z ' + unitlab)
+    plt.savefig('new_rzplot.png')
+    plt.clf()
+
+    x2 = np.linspace(-Rmax, Rmax, RBINS*2 - 1)
+    z2 = np.linspace(Z[0], Z[-1], RBINS)
+
+    xg2, yg2, zg2 = np.meshgrid(x2, np.asarray(0), z2)
+    pts = np.vstack((xg2.ravel(), yg2.ravel(), zg2.ravel())).T
+    out2 = ES(pts).reshape(xg2.shape[1], xg2.shape[2])
+
+    o2n = out2[:, :] / rad_avg
+
+    plt.contourf(xg2[0, :, :], zg2[0, :, :], o2n, levels=lvls, cmap='seismic')
+
+    plt.xlabel('x ' + unitlab)
+    plt.ylabel('z ' + unitlab)
+    plt.title('S(x,z)|$_{y=0}$')
+
+    plt.colorbar()
+    plt.savefig('new_xzplot.png')
+    plt.clf()
+
+    if False:
+        dif = o2n - final
+        lvls2 = np.linspace(-0.4, 0.4, 100)
+
+        plt.contourf(xg2[0, :, :], zg2[0, :, :], dif, levels=lvls2, cmap='seismic')
+        plt.xlabel('x,r ' + unitlab)
+        plt.ylabel('z ' + unitlab)
+        plt.title('S(r,z)-S(x,z)|$_{y=0}$')
+
+        plt.colorbar()
+        plt.savefig('difference.png')
+
+
 def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass full 3d data,SF,wavelength in angstroms
 
-    rzscale=kwargs["rzscale"]    
+    PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs)
+
+    rzscale = kwargs["rzscale"]
 
     if not os.path.exists(path):
         os.makedirs(path)
@@ -380,39 +489,43 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
                 lbuf = False
 
     print("Interpolating grid...")
-    # if not load:
-    #
-    #     if ucell[0, 0] == ucell[1, 1] and ucell[0, 0] == ucell[2, 2] and lbuf:
+    if not load:
 
-    ES = RegularGridInterpolator((X, Y, Z), SF, bounds_error=False)
+        if ucell[0, 0] == ucell[1, 1] and ucell[0, 0] == ucell[2, 2] and lbuf:
 
-        # else:
-        #
-        #     # ES = np.load("ES.npy")
-        #     dtime = 480.0*XGD.size / (98 * 98 * 99)  # empirical time estimate
-        #
-        #     print("interpolation time estimate: ", round(dtime/60, 1), " minutes, finishing around ", (datetime.datetime.now()+datetime.timedelta(seconds=dtime)).strftime('%I:%M %p'))
-        #
-        #     start = time.time()
-        #     coords = list(zip(XGD.ravel(), YGD.ravel(), ZGD.ravel()))
-        #
-        #     ES = LinearNDInterpolator(coords, VGD.ravel())
-        #     end = time.time()
-        #
-        #     print("interpolation finished, taking %s seconds" % (end-start))
+            ES = RegularGridInterpolator((X, Y, Z), SF, bounds_error=False)
+
+        else:
+
+            # ES = np.load("ES.npy")
+            dtime = 480.0*XGD.size / (98 * 98 * 99)  # empirical time estimate
+
+            start = time.time()
+            coords = list(zip(XGD.ravel(), YGD.ravel(), ZGD.ravel()))
+
+            if False:
+                ES = LinearNDInterpolator(coords, VGD.ravel())
+            else:
+                ES = NearestNDInterpolator(coords, VGD.ravel())
+            end = time.time()
+
+            print("interpolation finished, taking %4.2f seconds" % (end-start))
 
     xyzpts = []
     print("setting up points for radial integration")
-    if True:
-        for ix in trange(D.shape[0]):
-            for iy in range(D.shape[1]):
-                for iz in range(D.shape[2]):
-                    # xyzpts.append((X[ix],Y[iy],Z[iz]))
-                    xyzpts.append((D[ix, iy, iz, 0], D[ix, iy, iz, 1], D[ix, iy, iz, 2]))
-    else:
-        pass
 
-    xyzpts = np.asarray(xyzpts)
+    # if True:
+    #     for ix in trange(D.shape[0]):
+    #         for iy in range(D.shape[1]):
+    #             for iz in range(D.shape[2]):
+    #                 # xyzpts.append((X[ix],Y[iy],Z[iz]))
+    #                 xyzpts.append((D[ix, iy, iz, 0], D[ix, iy, iz, 1], D[ix, iy, iz, 2]))
+    # else:
+    #     pass
+    #
+    # xyzpts = np.asarray(xyzpts)
+
+    xyzpts = np.reshape(D[:, :, :, :3], (D.shape[0]*D.shape[1]*D.shape[2], 3))  # 5000x faster than above loop
 
     if not load:
         EWDxyz = ES(xyzpts)
@@ -421,6 +534,10 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
         EWDxyz = np.load("EWDxyz.npy")
 
     rpts = np.sqrt(xyzpts[:, 0]**2.0 + xyzpts[:, 1]**2.0)
+
+    # plt.hist(rpts, bins=80)
+    # plt.show()
+    # exit()
 
     Hcount, XEC, YEC = np.histogram2d(rpts, xyzpts[:, 2], bins=(XBNSRD, Z))
 
@@ -438,6 +555,7 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
 
     for ir in range(old_div(Hrz.shape[0], 2)):
         Hrz[-ir + old_div(Hrz.shape[0], 2), :] = Hrz[ir + 1 + old_div(Hrz.shape[0], 2), :]
+
     np.save("Hrz", Hrz)
 
     # with open('Intensities.txt', 'w') as f:
@@ -449,17 +567,74 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
     #
     #         f.write(line + '\n')
 
-
     XMG, YMG = np.meshgrid(XEV, YEV)
 
-    m = np.amax(Hrz[:, :-49])  # 49 for full sized thing a majig, 23 for half size
-    # exit()
-    # m = 0.00832122075357 # offset
-    # m = 0.00935587721282  # layered
+    ###################################################################################################################
+    # # Plot angular integration of 2D WAXS data bounded by a circle defined by radii 'lower' and 'upper'
+
+    # lower = 1.4  #
+    # upper = 1.57
+    #
+    # nbins = 45
+    # bins = np.linspace(-90, 90, nbins)
+    #
+    # bw = 180 / (nbins - 1)
+    #
+    # angles = []
+    # intensity = []
+    # for i in range(XMG.shape[0]):
+    #     for j in range(XMG.shape[1]):
+    #         if lower < np.linalg.norm([XMG[i, j], YMG[i, j]]) < upper:
+    #             angles.append((180/np.pi)*np.arctan(YMG[i, j]/XMG[i, j]))
+    #             intensity.append(Hrz[j, i])
+    #
+    # inds = np.digitize(angles, bins)
+    # I = np.zeros([nbins])
+    # counts = np.zeros([nbins])
+    # for i in range(len(inds)):
+    #     I[inds[i]] += intensity[i]
+    #     counts[inds[i]] += 1
+    #
+    # #Get average intensity in ring excluding 60 degree slice around top and bottom #######
+    #
+    # bin_range = 180 / nbins  # degrees which a single bin covers
+    #
+    # start = int(30 / bin_range)  # start at the bin which covers -60 degrees and above
+    # end = nbins - start  # because of symmetry
+    #
+    # total_intensity = np.sum(I[start:end])
+    # avg_intensity = total_intensity / np.sum(counts[start:end])
+    avg_intensity = 0.003
+
+    print('Average Intensity in alkane chain region : %s' % avg_intensity)
+    #
+    # I /= (counts*np.amax(intensity))
+    #
+    # plt.bar(bins, I, bw, color='#1f77b4')
+    #
+    # plt.xlabel('Angle with respect to $q_z=0$', fontsize=14)
+    # plt.ylabel('Normalized integrated intensity', fontsize=14)
+    # plt.gcf().get_axes()[0].tick_params(labelsize=14)
+    #
+    # plt.tight_layout()
+    # plt.savefig('angular_integration.png')
+    # plt.show()
+    ###################################################################################################################
+
+    # m = np.amax(Hrz[:, :-49])  # 49 for full sized thing a majig, 23 for half size
+    # # exit()
+    # # m = 0.00832122075357  # offset
+    # # m = 0.00935587721282  # layered
+    # m = 0.0036316001  # alkanes (average of PD and sandwiched average intensity in alkane region)
+    # # m *= factor
+    factor = 2.5  # this needs to match the experimental factor (see WAXS.py)
+    m = avg_intensity*factor
 
     fig, ax = plt.subplots()
     #plt.pcolormesh(XMG[:-1, :], YMG[:-1, :], Hrz.T, vmin=0.0, vmax=rzscale*np.amax(Hrz), cmap='viridis')
     heatmap = ax.pcolormesh(XMG[:-1, :], YMG[:-1, :], Hrz.T/m, vmin=0.0, vmax=1.0, cmap='jet')  # jet matches experiment
+    # heatmap = ax.pcolormesh(XMG[:-1, :], YMG[:-1, :], Hrz.T, cmap='jet')  # jet matches experiment
+
     # heatmap = ax.pcolormesh(XMG[:-50, :-49], YMG[:-50, :-49], Hrz.T[:-49, :-49]/m, vmin=0.0, vmax=1.0, cmap='jet')  # jet matches experiment
 
     ## Use this block (and comment out previous line to plot raw waxs data ##
@@ -531,7 +706,7 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
     plt.tight_layout()
     fig.savefig(path+"rzplot"+format, dpi=DPI)
     fig.clf()
-    exit()
+
     measure_intensity = False
 
     if measure_intensity:
