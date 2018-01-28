@@ -377,8 +377,8 @@ def PLOT_RAD_NEW(D,wavelength_angstroms,ucell,**kwargs):
 	RBINS=400		
 	NLEVELS=200		#number of levels for contour plots
 	
-	MIN=0.5
-	MAX=1.5
+	#MIN=0.5
+	#MAX=1.5
 	
 	ZBINS=Z.shape[0]	#400
 	
@@ -405,7 +405,8 @@ def PLOT_RAD_NEW(D,wavelength_angstroms,ucell,**kwargs):
 		
 		pts=np.vstack((xar.ravel(),yar.ravel(),z.ravel())).T		#reshape for interpolation
 		
-		MCpts=to_monoclinic(pts,ucell)								#transform to monoclinic cell
+		#MCpts=to_monoclinic(pts,ucell)								#transform to monoclinic cell
+		MCpts=pts
 		
 		oa[ir,:]=np.average(ES(MCpts).reshape(r.shape),axis=1)	#store average values in final array
 		
@@ -423,11 +424,14 @@ def PLOT_RAD_NEW(D,wavelength_angstroms,ucell,**kwargs):
 	
 	unitlab='($\AA^{-1}$)'				#Angstroms
 	
+	MIN=np.amin(final)
+	MAX=np.amax(final)
+	
 	
 	lvls=np.linspace(MIN,MAX,NLEVELS)			#contour levels
 	
 	
-	plt.contourf(rfin,zfin[0],final.T,levels=lvls,cmap='seismic')
+	plt.contourf(rfin,zfin[0],final.T,levels=lvls,cmap='jet')
 	plt.colorbar()
 	
 	plt.title('S(r,z)')
@@ -447,7 +451,7 @@ def PLOT_RAD_NEW(D,wavelength_angstroms,ucell,**kwargs):
 	
 	o2n=out2[:,:]/rad_avg
 	
-	plt.contourf(xg2[0,:,:],zg2[0,:,:],o2n,levels=lvls,cmap='seismic')
+	plt.contourf(xg2[0,:,:],zg2[0,:,:],o2n,levels=lvls,cmap='jet')
 	
 	
 	plt.xlabel('x '+unitlab)
