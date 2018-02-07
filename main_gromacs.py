@@ -32,7 +32,6 @@ parser.add_argument('-TRstride', default=1, type=int, help='stride to use for co
 
 parser.add_argument("-tf","--traj_format",default="gromacs",type=str,help='format of MD trajectory file to load')
 
-
 parser.add_argument('-fr', '--force_recompute', default=0, type=int, help='force recomputing SF (if >=1) or trajectory and SF(if >=2)')
 
 #random trajectory parameters
@@ -55,7 +54,7 @@ parser.add_argument('-LL', '--lattice_label', default="R3", type=str, help='set 
 parser.add_argument('-SR', '--spatial_resolution', default=1.0, type=float,help='set this to specify the spatial resolution for the density grid')
 parser.add_argument('-RN', '--random_noise', default=0, type=int,help='set this to a positive value to use random noise for testing.  A conventional trajectory must still be loaded.  The number of timesteps to be used will be scaled by this integer')
 parser.add_argument('-RS', '--random_seed', default=1, type=int,help='Set the random seed from the command line')
- 
+
 parser.add_argument('-NBR', '--number_bins_rad', default=0, type=int,help='Set this to a nonzero value to use that many radial bins.  These bins will be scaled such that they contain roughly the same number of points') 
 
 # tdict={"orth":2.0,"hex":3.0}
@@ -203,7 +202,12 @@ elif args.random_counts>0:	#create a random trajectory
 	dens.compute_sf(coords,dims,typ,sfname,rad,ucell,args.spatial_resolution)		#compute time-averaged 3d structure factor and save to sfname.npz
 
 else:  #load trajectory or npz file
+	print sfname+".npz"
+	print tfname+".npz"
 
+	# print sfname
+	# exit()
+	
 	if args.force_recompute>0 or not os.path.isfile(sfname+".npz"):			#check to see if SF needs to be calculated
 		if args.force_recompute>1 or not os.path.isfile(tfname+".npz"): 		#check to see if trajectory needs to be processed
 			print sfname
@@ -222,10 +226,12 @@ else:  #load trajectory or npz file
 					# lt.process(top_file,traj_file,tfname,args.TRstride)
 				print 'done'
 				
+		print "loading ", tfname, ".npz"
 		traj=np.load(tfname+".npz")							#load processed trajectory
 		print "trajectory file",tfname+".npz", "loaded"
 		
 		print type(traj["coords"])
+		
 		T=traj['coords']		
 		
 		if TRANSFORM_MONOCLINIC and theta!=90.0:	
@@ -247,7 +253,8 @@ else:  #load trajectory or npz file
 		dens.compute_sf(T[args.first_frame:,...],traj['dims'][args.first_frame:,...],traj['typ'],sfname,rad,ucell,args.spatial_resolution)		#compute time-averaged 3d structure factor and save to sfname.npz
 
 
-print "reloading SF..."
+# print "reloading SF..."
+# exit()
 dpl=np.load(sfname+".npz")					#load 3d SF
 
 grid=dpl['kgridplt']  #grid contains Kx,Ky,Kz,S(Kx,ky,kz) information
