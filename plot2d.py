@@ -15,6 +15,7 @@ from tqdm import trange
 import time
 import datetime
 import matplotlib
+print('Fuck you')
 matplotlib.rc('axes', color_cycle=['r', 'g', 'b', '#004060'])
 
 mainlabel = ""
@@ -33,8 +34,9 @@ text = "Structure Factor"
 PLOT_EWALDS = True  # enable ewald-corrected SF plots
 savelog = True
 savelin = True
-NBINSRAD=0
-normplot=1
+NBINSRAD = 0
+normplot = 1
+FP_THRESHOLD = 1.0E-12
 
 title_fontsize = 9
 
@@ -45,10 +47,9 @@ def pl(title, obj):
     delim = "="*20
     print(delim, title, delim)
     print(obj)
-    #print delim,"end ",title,delim
 
 
-def pli(title, obj):
+def pli(obj, title=""):
     pl(title, obj)
     buf = input("enter q to quit, anything else to continue")  # raw_input renamed to input() in python3
     if buf == 'q':
@@ -62,8 +63,8 @@ def ple(title, obj):
 
 def csplot_wlog(X, Y, Z, contours, lab, xlab, ylab, **kwargs):
 
-    csplot(X,Y,Z,contours,lab,xlab,ylab,**kwargs)
-    csplot(X,Y,np.log(Z),contours,"log_"+lab,xlab,ylab,**kwargs)
+    csplot(X, Y, Z, contours, lab, xlab, ylab, **kwargs)
+    csplot(X, Y, np.log(Z), contours, "log_"+lab, xlab, ylab, **kwargs)
 
 
 def csplot(X, Y, Z, contours, lab, xlab, ylab,**kwargs):
@@ -84,7 +85,7 @@ def csplot(X, Y, Z, contours, lab, xlab, ylab,**kwargs):
     # ax.set_aspect('auto')
     # cbar = fig.colorbar(cax)
 
-    plt.savefig(path+fname+format,dpi=DPI)
+    plt.savefig(path+fname+format, dpi=DPI)
     plt.clf()
 
 
@@ -93,12 +94,12 @@ def sfplot(data, lcscale, **kwargs):
 
     if not os.path.exists(path):
         os.makedirs(path)
+
     cspos = 0.0
     la = []
-
     lb = 0
-
     an = ['x', 'y', 'z']  # axes names
+
     for i in range(data.shape[2] - 1):
         if np.unique(data[..., i]).size > 1:
             la.append(i)
@@ -195,7 +196,8 @@ def Plot_Ewald_Sphere_Correction_old(D, wavelength_angstroms):
     plt.clf()
 
 
-def Plot_Ewald_Sphere_Correction(D, wavelength_angstroms, cscale=1, lcscale=1, **kwargs):
+def Plot_Ewald_Sphere_Correction(D, wavelength_angstroms, ucell=[], cscale=1, lcscale=1, **kwargs):
+
     """ pass full 3d data,SF,wavelength in angstroms """
     # cscale : factor by which to scale the maximum value of the colorbar
     # lcscale : factor by which to scale the maximum value of the colorbar
@@ -219,7 +221,7 @@ def Plot_Ewald_Sphere_Correction(D, wavelength_angstroms, cscale=1, lcscale=1, *
             theta = np.arctan(old_div(np.sqrt(xsq + Y[iy]**2.0),K_ES))
             xypts.append((X[ix]*np.cos(theta), Y[iy]*np.cos(theta), K_ES*(1.0 - np.cos(theta))))
 
-    xzpts=[]
+    xzpts = []
     for ix in range(D.shape[0]):
         xsq = X[ix]**2.0
         for iz in range(D.shape[2]):
@@ -321,73 +323,105 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
         os.makedirs(path)
 
     X = D[:, 0, 0, 0]
-
     Y = D[0, :, 0, 1]
     Z = D[0, 0, :, 2]
     SF = D[..., 3]
 
-    ES = RegularGridInterpolator((X, Y, Z), SF,bounds_error=False)
+    ES = RegularGridInterpolator((X, Y, Z), SF, bounds_error=False)
 
     THETA_BINS_PER_INV_ANG = 20.
-    MIN_THETA_BINS = 10		#minimum allowed bins
+    MIN_THETA_BINS = 10  # minimum allowed bins
     RBINS = 400
-    NLEVELS = 200		#number of levels for contour plots
+    NLEVELS = 200  # number of levels for contour plots
 
-    MIN = 0.5
-    MAX = 1.5
-
-    ZBINS = Z.shape[0]	#400
+    ZBINS = Z.shape[0]  # 400
 
     XR = (X[-1] - X[0])*ucell[0][0]
     YR = (Y[-1] - Y[0])*ucell[1][1]
 
-    Rmax = min(XR,YR) / 2.0
+    Rmax = min(XR, YR) / 2.0
     Rmax *= 0.95
 
     rarr, rspace = np.linspace(0.0, Rmax, RBINS, retstep=True)
     zar = np.linspace(Z[0], Z[-1], ZBINS)
 
-    oa = np.zeros((rarr.shape[0],zar.shape[0]))
-    circ = 2.*np.pi*rarr											#circumference
+    oa = np.zeros((rarr.shape[0], zar.shape[0]))
+    circ = 2.*np.pi*rarr  # circumference
+
     for ir in trange(rarr.shape[0]):
 
-        NTHETABINS = max(int(THETA_BINS_PER_INV_ANG*circ[ir]), MIN_THETA_BINS)	#calculate number of bins at this r
-        thetas = np.linspace(0.0, np.pi*2.0, NTHETABINS, endpoint=False)		#generate theta array
+        NTHETABINS = max(int(THETA_BINS_PER_INV_ANG*circ[ir]), MIN_THETA_BINS)  #calculate number of bins at this r
+        thetas = np.linspace(0.0, np.pi*2.0, NTHETABINS, endpoint=False)  # generate theta array
 
-        t, r, z = np.meshgrid(thetas, rarr[ir], zar)							#generate grid of cylindrical points
+        t, r, z = np.meshgrid(thetas, rarr[ir], zar)  # generate grid of cylindrical points
 
-        xar = r*np.cos(t)													#set up x,y coords
+        xar = r*np.cos(t)  # set up x,y coords
         yar = r*np.sin(t)
 
-        pts = np.vstack((xar.ravel(),yar.ravel(),z.ravel())).T		#reshape for interpolation
+        pts = np.vstack((xar.ravel(), yar.ravel(), z.ravel())).T  # reshape for interpolation
 
-        MCpts = to_monoclinic(pts,ucell)								#transform to monoclinic cell
+        MCpts = to_monoclinic(pts, ucell)  # transform to monoclinic cell
+        # MCpts = pts
 
-        oa[ir,:] = np.average(ES(MCpts).reshape(r.shape), axis=1)	#store average values in final array
+        oa[ir, :] = np.average(ES(MCpts).reshape(r.shape), axis=1)  # store average values in final array
+        # if ir == 373:
+        #     print(ES(MCpts).reshape(r.shape).shape)
+            # print(np.mean(ES(MCpts).reshape(r.shape), axis=1))
 
+    # rad_avg = np.average(oa)
+    rad_avg = np.mean(np.ma.masked_invalid(oa))
 
-    rad_avg=np.average(oa)
-
-    oa /= rad_avg		#normalize
+    oa /= rad_avg  # normalize
 
     # set up data for contourf plot
 
-    final = np.append(oa[::-1, :], oa[1:], axis=0)		#SF
-    rfin = np.append(-rarr[::-1], rarr[1:])			#R
-    zfin = np.append(z[:, 0, :], z[1:, 0, :], axis=0)		#Z
+    final = np.append(oa[::-1, :], oa[1:], axis=0)  # SF
+    rfin = np.append(-rarr[::-1], rarr[1:])  # R
+    zfin = np.append(z[:, 0, :], z[1:, 0, :], axis=0)  # Z
 
-    unitlab = '($\AA^{-1}$)'				#Angstroms
+    # plt.plot(rfin, final.T[int(zfin.shape[1] / 2), :])
+    # plt.show()
+    # exit()
+    unitlab = '($\AA^{-1}$)'  # Angstroms
 
-    lvls = np.linspace(MIN,MAX,NLEVELS)			#contour levels
+    MIN = np.amin(np.ma.masked_invalid(final))
+    MAX = np.amax(np.ma.masked_invalid(final))
 
-    plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap='seismic')
+    print(MIN, MAX, NLEVELS)
+    lvls = np.linspace(MIN, MAX, NLEVELS)  # contour levels
+
+    cs = plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap='jet')
+    cs.cmap.set_under('k')
+    cs.set_clim(MIN, 0.1*MAX)
+    # fig, ax = plt.subplots()
+    # heatmap = ax.pcolormesh(rfin, zfin[0], final.T, cmap='jet', vmax=0.1)  # jet matches experiment
+    #
+    # cbar = plt.colorbar(heatmap)
+    # from matplotlib import ticker
+    # tick_locator = ticker.MaxNLocator(nbins=5)
+    # cbar.locator = tick_locator
+    # cbar.update_ticks()
+    # cbar.ax.set_yticklabels(['0', '0.2', '0.4', '0.6', '0.8', '1'])
+    # plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
+    # plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
+    # plt.gcf().get_axes()[0].set_xlabel('$q_r$' + unitlab, fontsize=14)
+    # plt.gcf().get_axes()[0].set_ylabel('$q_z$' + unitlab, fontsize=14)
+    # plt.gcf().get_axes()[0].set_aspect('equal')
+    # plt.gcf().get_axes()[0].tick_params(labelsize=14)
+    # plt.tight_layout()
+    # plt.savefig('new_rzplot.png')
+    # fig.clf()
+
     plt.colorbar()
 
     plt.title('S(r,z)')
     plt.xlabel('r ' + unitlab)
     plt.ylabel('z ' + unitlab)
+    plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
+    plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
     plt.savefig('new_rzplot.png')
     plt.clf()
+    print('new_rzplot.png saved')
 
     x2 = np.linspace(-Rmax, Rmax, RBINS*2 - 1)
     z2 = np.linspace(Z[0], Z[-1], RBINS)
@@ -398,7 +432,7 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
 
     o2n = out2[:, :] / rad_avg
 
-    plt.contourf(xg2[0, :, :], zg2[0, :, :], o2n, levels=lvls, cmap='seismic')
+    plt.contourf(xg2[0, :, :], zg2[0, :, :], o2n, levels=lvls, cmap='jet')
 
     plt.xlabel('x ' + unitlab)
     plt.ylabel('z ' + unitlab)
@@ -419,6 +453,34 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
 
         plt.colorbar()
         plt.savefig('difference.png')
+
+
+def to_monoclinic(D, ucell):		#monoclinic for now
+
+    a1 = ucell[0]
+    a2 = ucell[1]
+    a3 = ucell[2]
+
+    b1 = (np.cross(a2, a3)) / (np.dot(a1, np.cross(a2, a3)))
+    b2 = (np.cross(a3, a1)) / (np.dot(a2, np.cross(a3, a1)))#*2.0*math.pi
+    b3 = (np.cross(a1, a2)) / (np.dot(a3, np.cross(a1, a2)))#*2.0*math.pi
+
+    Dnew = np.zeros_like(D)
+
+    X = D[..., 0]
+    Y = D[..., 1]
+    Z = D[..., 2]
+
+    for ix in range(D.shape[0]):
+        Dnew[ix, 0:3] += X[ix]*b1  #(X[ix]-X[X.shape[0]/2])*b1
+
+    for iy in range(D.shape[0]):
+        Dnew[iy, 0:3] += Y[iy]*b2  #(Y[iy]-Y[Y.shape[0]/2])*b2
+
+    for iz in range(D.shape[0]):
+        Dnew[iz, 0:3] += Z[iz]*b3  #(Z[iz]-Z[Z.shape[0]/2])*b3
+
+    return Dnew
 
 
 def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass full 3d data,SF,wavelength in angstroms
@@ -572,39 +634,39 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
     ###################################################################################################################
     # # Plot angular integration of 2D WAXS data bounded by a circle defined by radii 'lower' and 'upper'
 
-    # lower = 1.4  #
-    # upper = 1.57
-    #
-    # nbins = 45
-    # bins = np.linspace(-90, 90, nbins)
-    #
-    # bw = 180 / (nbins - 1)
-    #
-    # angles = []
-    # intensity = []
-    # for i in range(XMG.shape[0]):
-    #     for j in range(XMG.shape[1]):
-    #         if lower < np.linalg.norm([XMG[i, j], YMG[i, j]]) < upper:
-    #             angles.append((180/np.pi)*np.arctan(YMG[i, j]/XMG[i, j]))
-    #             intensity.append(Hrz[j, i])
-    #
-    # inds = np.digitize(angles, bins)
-    # I = np.zeros([nbins])
-    # counts = np.zeros([nbins])
-    # for i in range(len(inds)):
-    #     I[inds[i]] += intensity[i]
-    #     counts[inds[i]] += 1
-    #
-    # #Get average intensity in ring excluding 60 degree slice around top and bottom #######
-    #
-    # bin_range = 180 / nbins  # degrees which a single bin covers
-    #
-    # start = int(30 / bin_range)  # start at the bin which covers -60 degrees and above
-    # end = nbins - start  # because of symmetry
-    #
-    # total_intensity = np.sum(I[start:end])
-    # avg_intensity = total_intensity / np.sum(counts[start:end])
-    avg_intensity = 0.003
+    lower = 1.4  #
+    upper = 1.57
+
+    nbins = 45
+    bins = np.linspace(-90, 90, nbins)
+
+    bw = 180 / (nbins - 1)
+
+    angles = []
+    intensity = []
+    for i in range(XMG.shape[0]):
+        for j in range(XMG.shape[1]):
+            if lower < np.linalg.norm([XMG[i, j], YMG[i, j]]) < upper:
+                angles.append((180/np.pi)*np.arctan(YMG[i, j]/XMG[i, j]))
+                intensity.append(Hrz[j, i])
+
+    inds = np.digitize(angles, bins)
+    I = np.zeros([nbins])
+    counts = np.zeros([nbins])
+    for i in range(len(inds)):
+        I[inds[i]] += intensity[i]
+        counts[inds[i]] += 1
+
+    #Get average intensity in ring excluding 60 degree slice around top and bottom #######
+
+    bin_range = 180 / nbins  # degrees which a single bin covers
+
+    start = int(30 / bin_range)  # start at the bin which covers -60 degrees and above
+    end = nbins - start  # because of symmetry
+
+    total_intensity = np.sum(I[start:end])
+    avg_intensity = total_intensity / np.sum(counts[start:end])
+    avg_intensity = 0.0042
 
     print('Average Intensity in alkane chain region : %s' % avg_intensity)
     #

@@ -183,7 +183,6 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
     :param Sres: Spatial resolution of the density grid in angstroms. This setting determines the maximum scattering
     vector which is 2*pi/Sres
     """
-    # L[0][2] *= 2
 
     r, L = rescale(r, L)  #keep this inside compute_fft to allow coordinates to be rescaled to whichever numpy view is passed
 
@@ -202,7 +201,7 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
         print("requested resolution: %s Angstroms" % Sres)
         print("Using a spatial grid of: %s" % Nspatialgrid)
         print("actual resolution: %s Angstroms" %(L/Nspatialgrid))
-        print("This corresponds to maximum q vector of %s inverse Angstroms" %(2*math.pi*Nspatialgrid/L))
+        print("This corresponds to maximum q vector of %s inverse Angstroms" % (2*math.pi*Nspatialgrid/L))
         print("="*50)
         print("="*50)
 
@@ -215,8 +214,8 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
     # this must be done in case some atoms are outside the periodic cell (some MD programs save like this)
     if r.shape[1] < BUFFSIZE:	  #check if system is so large that it needs to be buffered.
         for it in range(r.shape[0]):  								#looped to save memory
-            r[it,...] = np.where(r[it,...] < L, r[it,...], r[it,...] - L)     								#get positions in periodic cell
-            r[it,...] = np.where(r[it,...] > zv, r[it,...], r[it,...] + L)
+            r[it, ...] = np.where(r[it, ...] < L, r[it, ...], r[it, ...] - L)     								#get positions in periodic cell
+            r[it, ...] = np.where(r[it, ...] > zv, r[it, ...], r[it, ...] + L)
     else:
         # for ic in trange(3):	#buffered to further save memory
             for it in trange(r.shape[0]): # looped to save memory
@@ -224,8 +223,8 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
                     imax = imin + BUFFSIZE
                     if imax > r.shape[0]:
                         imax = r.shape[0]
-                        r[it, imin:imax,:] = np.where(r[it, imin:imax, :] < L, r[it,imin:imax,:], r[it,imin:imax,:] - L)  #get positions in periodic cell
-                        r[it, imin:imax,:] = np.where(r[it,imin:imax,:] > zv, r[it,imin:imax,:], r[it,imin:imax,:] + L)
+                        r[it, imin:imax, :] = np.where(r[it, imin:imax, :] < L, r[it, imin:imax, :], r[it, imin:imax, :] - L)  #get positions in periodic cell
+                        r[it, imin:imax, :] = np.where(r[it, imin:imax, :] > zv, r[it, imin:imax, :], r[it, imin:imax, :] + L)
 
     bdict = get_borders(rad, dr, set(typ))	#dictionary of borders by atom type
 
@@ -239,7 +238,7 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
 
     print("allocating memory")
     print(dtyp)
-    print((int(Nspatialgrid[0]),int(Nspatialgrid[1]),int(Nspatialgrid[2])/2+1))
+    print((int(Nspatialgrid[0]), int(Nspatialgrid[1]), int(Nspatialgrid[2])/2+1))
     print((int(Nspatialgrid[0])+2*Nborder)*(int(Nspatialgrid[1])+2*Nborder)*(int(Nspatialgrid[2])+2*Nborder)*4/(2**20.0), "MB")
     d0 = np.zeros((int(Nspatialgrid[0]) + 2*Nborder, int(Nspatialgrid[1]) + 2*Nborder, int(Nspatialgrid[2]) + 2*Nborder),dtype=dtyp) #density[x,y,z]
 
@@ -274,8 +273,8 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
     Ay=1
     Az=1
 
-    des_tcl=[]
-    ori_tcl=[]
+    des_tcl = []
+    ori_tcl = []
 
     for i in range(3):
         des_tcl.append([0, Nborder, Nspatialgrid[i] - Nborder, Nspatialgrid[i]])
@@ -349,7 +348,6 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
     for iy in range(int(kgrid.shape[1]/2)):
         kgrid[:, iy, :, 1] = iy*2.0*math.pi/L[1]
         kgrid[:, kgrid.shape[1] - 1 - iy, :, 1] = -(iy+0.5)*2.0*math.pi/L[1]
-
     for iz in range(kgrid.shape[2]):
         kgrid[:, :, iz, 2] = iz*2.0*math.pi/L[2]
 
