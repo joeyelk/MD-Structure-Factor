@@ -65,8 +65,7 @@ location = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__))
 
 warnings.simplefilter("ignore", RuntimeWarning)
 
-
-theta = math.pi/3.0  # theta for monoclinic unit cell
+theta = args.cell_theta*math.pi/180.0  # theta for monoclinic unit cell
 ucell = np.array([[1, 0, 0], [np.cos(theta), np.sin(theta), 0], [0, 0, 1]])
 
 np.random.seed = args.random_seed  # args.random_noise

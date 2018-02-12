@@ -486,7 +486,7 @@ def to_monoclinic(D, ucell):		#monoclinic for now
 def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass full 3d data,SF,wavelength in angstroms
 
     PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs)
-
+    exit()
     rzscale = kwargs["rzscale"]
 
     if not os.path.exists(path):
