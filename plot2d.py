@@ -15,7 +15,7 @@ from tqdm import trange
 import time
 import datetime
 import matplotlib
-print('Fuck you')
+
 matplotlib.rc('axes', color_cycle=['r', 'g', 'b', '#004060'])
 
 mainlabel = ""
@@ -360,7 +360,7 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
 
         pts = np.vstack((xar.ravel(), yar.ravel(), z.ravel())).T  # reshape for interpolation
 
-        MCpts = to_monoclinic(pts, ucell)  # transform to monoclinic cell
+        MCpts = tm2(pts, ucell)  # transform to monoclinic cell
         # MCpts = pts
 
         oa[ir, :] = np.average(ES(MCpts).reshape(r.shape), axis=1)  # store average values in final array
@@ -369,8 +369,12 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
             # print(np.mean(ES(MCpts).reshape(r.shape), axis=1))
 
     # rad_avg = np.average(oa)
-    rad_avg = np.mean(np.ma.masked_invalid(oa))
+    # rad_avg = np.mean(np.ma.masked_invalid(oa))
 
+    mn = np.nanmin(oa)
+    oa = np.where(np.isnan(oa), mn, oa)
+
+    rad_avg = np.average(oa)
     oa /= rad_avg  # normalize
 
     # set up data for contourf plot
@@ -384,10 +388,11 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
     # exit()
     unitlab = '($\AA^{-1}$)'  # Angstroms
 
-    MIN = np.amin(np.ma.masked_invalid(final))
-    MAX = np.amax(np.ma.masked_invalid(final))
+    # MIN = np.amin(np.ma.masked_invalid(final))
+    # MAX = np.amax(np.ma.masked_invalid(final))
+    MIN = np.amin(final)
+    MAX = np.amax(final)
 
-    print(MIN, MAX, NLEVELS)
     lvls = np.linspace(MIN, MAX, NLEVELS)  # contour levels
 
     cs = plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap='jet')
@@ -453,6 +458,34 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
 
         plt.colorbar()
         plt.savefig('difference.png')
+
+
+def tm2(D, ucell):
+
+    a1 = ucell[0]
+    a2 = ucell[1]
+    a3 = ucell[2]
+
+    b1 = (np.cross(a2, a3))/(np.dot(a1, np.cross(a2, a3)))#
+    b2 = (np.cross(a3, a1))/(np.dot(a2, np.cross(a3, a1)))#*2.0*math.pi
+    b3 = (np.cross(a1, a2))/(np.dot(a3, np.cross(a1, a2)))#*2.0*math.pi
+
+    Dnew = np.zeros_like(D)
+
+    X = D[..., 0]
+    Y = D[..., 1]
+    Z = D[..., 2]
+
+    for ix in range(D.shape[0]):
+        Dnew[ix, 0:3] += X[ix]*b1  #(X[ix]-X[X.shape[0]/2])*b1
+
+    for iy in range(D.shape[0]):
+        Dnew[iy, 0:3] += Y[iy]*b2  #(Y[iy]-Y[Y.shape[0]/2])*b2
+
+    for iz in range(D.shape[0]):
+        Dnew[iz, 0:3] += Z[iz]*b3  #(Z[iz]-Z[Z.shape[0]/2])*b3
+
+    return Dnew
 
 
 def to_monoclinic(D, ucell):		#monoclinic for now

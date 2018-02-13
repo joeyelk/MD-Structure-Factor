@@ -75,17 +75,17 @@ if args.random_noise > 0:
 
     dens2.RANDOM_NOISE = args.random_noise
 
+top_extension = {"gromacs": ".gro", "namd": ".psf"}
+traj_extension = {"gromacs": ".trr", "namd": ".dcd"}
+
 if len(args.input) > 0:
     basename = args.input
-    top_file = args.input+".gro"
-    traj_file = args.input+".trr"
+    top_file = args.input+top_extension[args.traj_format.lower()]
+    traj_file = args.input+traj_extension[args.traj_format.lower()]
 else:
     top_file = args.topology
     traj_file = args.trajectory
     basename = args.topology.rsplit('.', 1)[0]
-
-# if len(args.output)>0:
-# 	basename=args.output
 
 print("running on", platform.system(), platform.release(), platform.version())
 
