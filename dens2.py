@@ -16,6 +16,7 @@ RANDOM_NOISE = 0  # this will override density with random noise
 
 # number of gridpoints
 Nspatialgrid = np.asarray([0.0, 0.0, 0.0])
+theta = np.pi / 3
 
 PRECISION = 1.0E-24
 
@@ -49,8 +50,9 @@ def rescale(coords,dims):
     rescale coordinates so that cell dimensions are constant over the simulation
     returns rescaled coordinates, average length, and spatial step
     """
+
     avgdims = np.average(dims, axis=0)
-    a = old_div(avgdims,dims)
+    a = old_div(avgdims, dims)
     rc = coords
 
     for it in range(rc.shape[0]):
@@ -184,7 +186,8 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
     vector which is 2*pi/Sres
     """
 
-    r, L = rescale(r, L)  #keep this inside compute_fft to allow coordinates to be rescaled to whichever numpy view is passed
+    r, L = rescale(r, L)  # keep this inside compute_fft to allow coordinates to be rescaled to whichever numpy view is passed
+    L[1] *= np.sin(np.pi / 3)
 
     Nspatialgrid = (L/Sres).astype(int)
 
@@ -192,15 +195,17 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
         for i in range(3):
              if L[i]/Nspatialgrid[i] > Sres:
                  Nspatialgrid[i] += 1
+
     for i in range(3):  #ensure Nspatialgrid is even
         Nspatialgrid[i] += Nspatialgrid[i] % 2
+
     if PRINT_DETAILS:    #print spatial resolution details
         print("="*50)
         print("="*50)
         print("Unit cell has dimensions of %s" % L)
         print("requested resolution: %s Angstroms" % Sres)
         print("Using a spatial grid of: %s" % Nspatialgrid)
-        print("actual resolution: %s Angstroms" %(L/Nspatialgrid))
+        print("actual resolution: %s Angstroms" % (L/Nspatialgrid))
         print("This corresponds to maximum q vector of %s inverse Angstroms" % (2*math.pi*Nspatialgrid/L))
         print("="*50)
         print("="*50)
@@ -225,6 +230,18 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
                         imax = r.shape[0]
                         r[it, imin:imax, :] = np.where(r[it, imin:imax, :] < L, r[it, imin:imax, :], r[it, imin:imax, :] - L)  #get positions in periodic cell
                         r[it, imin:imax, :] = np.where(r[it, imin:imax, :] > zv, r[it, imin:imax, :], r[it, imin:imax, :] + L)
+
+    # from llclib import file_rw
+    # import mdtraj as md
+    #
+    # t = md.load('wiggle.gro')
+    # ids = [a.name for a in t.topology.atoms]
+    # res = [a.residue.name for a in t.topology.atoms]
+    # full_box = t.unitcell_vectors
+    # box_gromacs = [full_box[0, 0, 0], full_box[0, 1, 1], full_box[0, 2, 2], full_box[0, 0, 1], full_box[0, 2, 0],
+    #                 full_box[0, 1, 0], full_box[0, 0, 2], full_box[0, 1, 2], full_box[0, 2, 0]]
+    # file_rw.write_gro_pos(r[0, :, :]/10, 'test.gro', ids=ids, res=res, box=L/10)
+    # exit()
 
     bdict = get_borders(rad, dr, set(typ))	#dictionary of borders by atom type
 
@@ -259,20 +276,6 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
     for iz in range(grid.shape[2]):
         grid[:, :, iz, 2] += (iz - Nborder) * dr[2]
 
-    #declare variables outside of loop so they're (possibly) handled more efficiently
-    buf=np.array([])
-    sig=0
-    A1=0
-    ix0=0.0
-    ix1=0.0
-    iy0=0.0
-    iy1=0.0
-    iz0=0.0
-    iz1=0.0
-    Ax=1
-    Ay=1
-    Az=1
-
     des_tcl = []
     ori_tcl = []
 
@@ -292,20 +295,20 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
         print("*"*80)
         print("*"*80)
 
-    for it in tqdm.tqdm(list(range(r.shape[0])), unit='timestep'):  #loop over timestep
+    for it in tqdm.tqdm(list(range(r.shape[0])), unit='timestep'):  # loop over timestep
 
         if RANDOM_NOISE > 0:
             d1 = np.random.rand(int(Nspatialgrid[0]), int(Nspatialgrid[1]), int(Nspatialgrid[2]))
 
         else:
-            for im in tqdm.tqdm(list(range(r.shape[1])), unit='atoms'): #loop over atoms
+            for im in tqdm.tqdm(list(range(r.shape[1])), unit='atoms'):  # loop over atoms
 
-                ir = (r[it, im, :]/dr).astype(int)  #get integer coordinates of atoms
+                ir = (r[it, im, :]/dr).astype(int)  # get integer coordinates of atoms
 
-
-                Ax = np.int(bdict[typ[im]][0])
-                Ay = np.int(bdict[typ[im]][1])
-                Az = np.int(bdict[typ[im]][2])
+                Ax, Ay, Az = bdict[typ[im]].astype(int)
+                # Ax = np.int(bdict[typ[im]][0])
+                # Ay = np.int(bdict[typ[im]][1])
+                # Az = np.int(bdict[typ[im]][2])
 
                 ix0 = ir[0] - Ax + Nborder
                 ix1 = ir[0] + Ax + Nborder
@@ -320,22 +323,22 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
 
                 distSQ = buf2[..., 0]**2 + buf2[..., 1]**2 + buf2[..., 2]**2
 
-                sig = rad[typ[im]][1]	#width of gaussian
-                Nel = rad[typ[im]][0]	#electron number
+                sig = rad[typ[im]][1]  # width of gaussian
+                Nel = rad[typ[im]][0]  # electron number
 
                 d0[ix0:ix1, iy0:iy1, iz0:iz1] += (Nel/np.power(sig,3.))*np.exp(-distSQ / (2 * np.power(sig, 2.)))
                 #print dr[0]*dr[1]*dr[2]*np.sum(d0)/np.power(2.0*math.pi,1.5)  #use this to verify normalization
 
-            d1 = remap_grid_tcl(d0, des_tcl, ori_tcl)			#remap density onto periodic cell
+            d1 = remap_grid_tcl(d0, des_tcl, ori_tcl)  # remap density onto periodic cell
 
-        dfft = np.fft.rfftn(d1)				#compute 3d FFT
+        dfft = np.fft.rfftn(d1)				# compute 3d FFT
 
         dmag = dfft.conjugate()
-        dmag = np.real(np.multiply(dmag, dfft, out=dmag))	#compute magnitude of complex structure factor
+        dmag = np.real(np.multiply(dmag, dfft, out=dmag))  # compute magnitude of complex structure factor
 
-        sf += dmag	#add to time-averaged structure factor
+        sf += dmag  # add to time-averaged structure factor
 
-        d1 *= 0.0   #reset arrays
+        d1 *= 0.0   # reset arrays
         d0 *= 0.0
 
     sfplt = get_dplot(sf)

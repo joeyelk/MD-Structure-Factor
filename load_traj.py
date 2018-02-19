@@ -85,7 +85,12 @@ def process_gro_mdtraj(topology_filename, trajectory_filename, output_filename):
 
     name = np.array([a.name for a in t.topology.atoms])
     mass = np.array([a.element.mass for a in t.topology.atoms])
-    typ = np.array([a.element.symbol for a in t.topology.atoms])
+    typ = []
+    for a in t.topology.atoms:
+        if a.name == 'NA':
+            typ.append('NA')
+        else:
+            typ.append(a.element.symbol)
 
     print("saving ", output_filename)
 

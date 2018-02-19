@@ -15,6 +15,7 @@ from tqdm import trange
 import time
 import datetime
 import matplotlib
+from scipy.optimize import curve_fit
 
 matplotlib.rc('axes', color_cycle=['r', 'g', 'b', '#004060'])
 
@@ -37,6 +38,7 @@ savelin = True
 NBINSRAD = 0
 normplot = 1
 FP_THRESHOLD = 1.0E-12
+theta = np.pi / 2
 
 title_fontsize = 9
 
@@ -317,6 +319,20 @@ def Plot_Ewald_Sphere_Correction(D, wavelength_angstroms, ucell=[], cscale=1, lc
     plt.clf()
 
 
+def lorentz(points, a, b):
+    """
+    :param p: lorentzian parameters : [full width half max (FWHM), position of maximum]
+    :param p: position
+    :return:
+    """
+
+    w = np.pi / a
+
+    x = (b - points) / (w/2)
+
+    return 1 / (1 + x**2)
+
+
 def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
 
     if not os.path.exists(path):
@@ -327,11 +343,25 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
     Z = D[0, 0, :, 2]
     SF = D[..., 3]
 
+    print(X[len(X)//2], Y[len(Y)//2])
+    #print(SF[len(X)//2, len(Y)//2, :]/1*10**-9)
+    #plt.plot(Z, SF[len(X)//2, len(Y)//2, :])
+    #start_fit = len(Z) // 2 + 15
+    #end_fit = -1 - 15
+    #p = np.array([30, 1.4])
+    # solp, cov_x = curve_fit(lorentz, Z[start_fit:end_fit], SF[len(X)//2, len(Y)//2, start_fit:end_fit], p)
+    # plt.plot(Z[start_fit:end_fit], lorentz(Z[start_fit:end_fit], solp[0], solp[1]))
+    #print(np.max(SF[len(X)//2, len(Y)//2,:]))
+    #plt.xlabel('($\AA^{-1}$)')
+    #plt.ylabel('Intensity')
+    #plt.savefig('z_section.png')
+    #plt.show()
+
     ES = RegularGridInterpolator((X, Y, Z), SF, bounds_error=False)
 
     THETA_BINS_PER_INV_ANG = 20.
     MIN_THETA_BINS = 10  # minimum allowed bins
-    RBINS = 400
+    RBINS = 400 
     NLEVELS = 200  # number of levels for contour plots
 
     ZBINS = Z.shape[0]  # 400
@@ -360,16 +390,11 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
 
         pts = np.vstack((xar.ravel(), yar.ravel(), z.ravel())).T  # reshape for interpolation
 
-        MCpts = tm2(pts, ucell)  # transform to monoclinic cell
-        # MCpts = pts
-
-        oa[ir, :] = np.average(ES(MCpts).reshape(r.shape), axis=1)  # store average values in final array
-        # if ir == 373:
-        #     print(ES(MCpts).reshape(r.shape).shape)
-            # print(np.mean(ES(MCpts).reshape(r.shape), axis=1))
-
-    # rad_avg = np.average(oa)
-    # rad_avg = np.mean(np.ma.masked_invalid(oa))
+        if theta != np.pi/2:
+            MCpts = tm2(pts, ucell)  # transform to monoclinic cell
+            oa[ir, :] = np.average(ES(MCpts).reshape(r.shape), axis=1)  # store average values in final array
+        else:
+            oa[ir, :] = np.average(ES(pts).reshape(r.shape), axis=1)  # store average values in final array
 
     mn = np.nanmin(oa)
     oa = np.where(np.isnan(oa), mn, oa)
@@ -390,14 +415,58 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
 
     # MIN = np.amin(np.ma.masked_invalid(final))
     # MAX = np.amax(np.ma.masked_invalid(final))
+
+    factor = 3.1
+    alkane_intensity = normalize_alkanes(rfin, zfin[0], final, 1.1, 1.6, 120)  # 1.4, 1.57
+
+    alkane_intensity = 2.26828710134
+
+    final /= alkane_intensity
     MIN = np.amin(final)
     MAX = np.amax(final)
 
-    lvls = np.linspace(MIN, MAX, NLEVELS)  # contour levels
+    lvls = np.linspace(0, factor, NLEVELS)  # contour levels
 
-    cs = plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap='jet')
+    # restricted = np.zeros_like(final)
+    # for i in range(rfin.shape[0]):
+    #     for j in range(zfin[0].shape[0]):
+    #         if 0.9 < np.linalg.norm([rfin[i], zfin[0][j]]) < 2:
+    #             angle = (180/np.pi)*np.arctan(zfin[0][j]/rfin[i])
+    #             if angle > 60 or angle < -60:
+    #                 restricted[i, j] = final[i, j]
+    #
+    # binarea = (rfin[1] - rfin[0]) * (zfin[0][1] - zfin[0][0])
+    # print('Bin area: %s' % binarea)
+    # print(np.amax(restricted))
+    # print(np.count_nonzero(restricted))
+    # print(np.sum(restricted))
+    #
+    # plt.imshow(restricted.T, aspect=(rfin.shape[0]/zfin[0].shape[0]), vmax=0.05*np.amax(restricted))
+    # plt.show()
+    # exit()
+
+    # blot out middle circle
+    #for i in range(rfin.shape[0]):
+    #    for j in range(zfin[0].shape[0]):
+    #        if np.linalg.norm([rfin[i], zfin[0][j]]) < 0.35:
+    #            final[i, j] = 0
+
+    # plt.plot(zfin[0], final.T[:, rfin.shape[0]//2])
+    # plt.show()
+
+    # plt.plot(rfin, final[:, zfin[0].shape[0]//2])
+    # plt.show()
+    # exit()
+
+    cs = plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap='seismic', extend='max')
+    #cs = plt.pcolormesh(rfin, zfin[0], final.T, vmax=factor, cmap='seismic')
+    #heatmap = plt.imshow(final.T, cmap='seismic', vmax=factor*alkane_intensity, aspect=(rfin.shape[0]/zfin[0].shape[0]), interpolation='gaussian')
+    # plt.show()
+    # exit()
+
     cs.cmap.set_under('k')
-    cs.set_clim(MIN, 0.1*MAX)
+    cs.set_clim(0, factor)
+    
     # fig, ax = plt.subplots()
     # heatmap = ax.pcolormesh(rfin, zfin[0], final.T, cmap='jet', vmax=0.1)  # jet matches experiment
     #
@@ -417,16 +486,25 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
     # plt.savefig('new_rzplot.png')
     # fig.clf()
 
-    plt.colorbar()
+    cbar = plt.colorbar(format='%.1f')
+    # from matplotlib import ticker
+    # tick_locator = ticker.MaxNLocator(nbins=5)
+    # cbar.locator = tick_locator
+    # cbar.update_ticks()
+    # cbar.ax.set_yticklabels(['%1.1f' % i for i in np.linspace(0, 2.5*alkane_intensity, 5)])
 
-    plt.title('S(r,z)')
-    plt.xlabel('r ' + unitlab)
-    plt.ylabel('z ' + unitlab)
-    plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
-    plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
-    plt.savefig('new_rzplot.png')
+    plt.title('S(r,z)', fontsize=14)
+    plt.xlabel('r ' + unitlab, fontsize=14)
+    plt.ylabel('z ' + unitlab, fontsize=14)
+    # plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
+    # plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
+    plt.gcf().get_axes()[0].tick_params(labelsize=14)
+    plt.tight_layout()
+    plt.savefig('rzplot.png')
     plt.clf()
-    print('new_rzplot.png saved')
+    print('rzplot.png saved')
+    plt.show()
+    # exit()
 
     x2 = np.linspace(-Rmax, Rmax, RBINS*2 - 1)
     z2 = np.linspace(Z[0], Z[-1], RBINS)
@@ -437,7 +515,8 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
 
     o2n = out2[:, :] / rad_avg
 
-    plt.contourf(xg2[0, :, :], zg2[0, :, :], o2n, levels=lvls, cmap='jet')
+    cs = plt.contourf(xg2[0, :, :], zg2[0, :, :], o2n, levels=lvls, cmap='jet', extend='max')
+    cs.cmap.set_under('k')
 
     plt.xlabel('x ' + unitlab)
     plt.ylabel('z ' + unitlab)
@@ -458,6 +537,66 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
 
         plt.colorbar()
         plt.savefig('difference.png')
+
+
+def normalize_alkanes(R, Z, Raw_Intensity, inner, outer, angle):
+    """
+    Plot angular integration of 2D WAXS data bounded by a circle defined by radii 'inner' and 'outer'
+    :param R: points in r direction
+    :param Z: points in z direction
+    :param Raw_Intensity: values at all (R, Z) points on grid
+    :param inner: inside radius of region bounding alkane reflections
+    :param outer: outside radius of region bounding alkane reflections
+    :return: Intensity values normalized by average intensity inside alkane region
+    """
+
+    nbins = 45
+    bins = np.linspace(-90, 90, nbins)
+
+    bw = 180 / (nbins - 1)
+
+    angles = []
+    intensity = []
+    for i in range(R.shape[0]):
+        for j in range(Z.shape[0]):
+            if inner < np.linalg.norm([R[i], Z[j]]) < outer:
+                angles.append((180/np.pi)*np.arctan(Z[j]/R[i]))
+                intensity.append(Raw_Intensity[i, j])
+
+    inds = np.digitize(angles, bins)
+
+    I = np.zeros([nbins])
+    counts = np.zeros([nbins])
+    for i in range(len(inds)):
+        I[inds[i] - 1] += intensity[i]
+        counts[inds[i] - 1] += 1
+
+    #Get average intensity in ring excluding 60 degree slice around top and bottom #######
+
+    bin_range = 180 / nbins  # degrees which a single bin covers
+
+    start = int((angle/2) / bin_range)  # start at the bin which covers -60 degrees and above
+    end = nbins - start  # because of symmetry
+
+    total_intensity = np.sum(I[start:end])
+    avg_intensity = total_intensity / np.sum(counts[start:end])
+
+    print('Average Intensity in alkane chain region : %s' % avg_intensity)
+
+    # I /= (counts*np.amax(intensity))
+    #
+    # plt.bar(bins, I, bw, color='#1f77b4')
+    #
+    # plt.xlabel('Angle with respect to $q_z=0$', fontsize=14)
+    # plt.ylabel('Normalized integrated intensity', fontsize=14)
+    # plt.gcf().get_axes()[0].tick_params(labelsize=14)
+    #
+    # plt.tight_layout()
+    # plt.savefig('angular_integration.png')
+    # plt.show()
+    # exit()
+
+    return avg_intensity
 
 
 def tm2(D, ucell):
@@ -520,6 +659,7 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
 
     PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs)
     exit()
+
     rzscale = kwargs["rzscale"]
 
     if not os.path.exists(path):
@@ -699,7 +839,7 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
 
     total_intensity = np.sum(I[start:end])
     avg_intensity = total_intensity / np.sum(counts[start:end])
-    avg_intensity = 0.0042
+    # avg_intensity = 0.0042
 
     print('Average Intensity in alkane chain region : %s' % avg_intensity)
     #
@@ -724,10 +864,28 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
     # # m *= factor
     factor = 2.5  # this needs to match the experimental factor (see WAXS.py)
     m = avg_intensity*factor
+    Hrz /= avg_intensity
+    plt.plot(Hrz)
+    restricted = np.zeros_like(Hrz)
+    for i in range(Hrz.shape[0]):
+        for j in range(Hrz.shape[1]):
+            if 0.9 < np.linalg.norm([XEV[i], YEV[j]]) < 2:
+                angle = (180/np.pi)*np.arctan(YEV[j]/XEV[i])
+                if angle > 60 or angle < -60:
+                    restricted[i, j] = Hrz[i, j]
+
+    # binarea = (rfin[1] - rfin[0]) * (zfin[0][1] - zfin[0][0])
+    # print('Bin area: %s' % binarea)
+    print(np.amax(restricted))
+    print(np.count_nonzero(restricted))
+    print(np.sum(restricted))
+
+    # plt.imshow(restricted.T, aspect=Hrz.shape[0]/Hrz.shape[1])
+    # plt.show()
 
     fig, ax = plt.subplots()
     #plt.pcolormesh(XMG[:-1, :], YMG[:-1, :], Hrz.T, vmin=0.0, vmax=rzscale*np.amax(Hrz), cmap='viridis')
-    heatmap = ax.pcolormesh(XMG[:-1, :], YMG[:-1, :], Hrz.T/m, vmin=0.0, vmax=1.0, cmap='jet')  # jet matches experiment
+    heatmap = ax.pcolormesh(XMG[:-1, :], YMG[:-1, :], Hrz.T, vmin=0.0, vmax=factor, cmap='jet')  # jet matches experiment
     # heatmap = ax.pcolormesh(XMG[:-1, :], YMG[:-1, :], Hrz.T, cmap='jet')  # jet matches experiment
 
     # heatmap = ax.pcolormesh(XMG[:-50, :-49], YMG[:-50, :-49], Hrz.T[:-49, :-49]/m, vmin=0.0, vmax=1.0, cmap='jet')  # jet matches experiment
@@ -739,11 +897,11 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
     ## end ##
 
     cbar = plt.colorbar(heatmap)
-    from matplotlib import ticker
-    tick_locator = ticker.MaxNLocator(nbins=5)
-    cbar.locator = tick_locator
-    cbar.update_ticks()
-    cbar.ax.set_yticklabels(['0', '0.2', '0.4', '0.6', '0.8', '1'])
+    # from matplotlib import ticker
+    # tick_locator = ticker.MaxNLocator(nbins=5)
+    # cbar.locator = tick_locator
+    # cbar.update_ticks()
+    # cbar.ax.set_yticklabels(['0', '0.2', '0.4', '0.6', '0.8', '1'])
 
     # x = XMG[0, :]
     # y = YMG[:, 0]
@@ -801,7 +959,7 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
     plt.tight_layout()
     fig.savefig(path+"rzplot"+format, dpi=DPI)
     fig.clf()
-
+    exit()
     measure_intensity = False
 
     if measure_intensity:

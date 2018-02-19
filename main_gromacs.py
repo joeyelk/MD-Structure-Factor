@@ -28,6 +28,7 @@ parser.add_argument('--cscale', default=1, type=float, help='Scale color map on 
 parser.add_argument('--lcscale', default=1, type=float, help='Scale color map on log plots')
 parser.add_argument('-fi', '--first_frame', default=0, type=int, help='frame to start at')
 parser.add_argument('-e', '--end_frame', default=-1, type=int, help='frame to end at')
+parser.add_argument("-tf","--traj_format",default="gromacs",type=str,help='format of MD trajectory file to load')
 parser.add_argument('-fr', '--force_recompute', default=0, type=int, help='force recomputing SF (if >=1) or trajectory and SF(if >=2)')
 #parser.add_argument('-o', '--output', default='', type=str, help='override output basename')
 
@@ -58,7 +59,7 @@ parser.add_argument('-RS', '--random_seed', default=1, type=int,help='Set the ra
 parser.add_argument('-NBR', '--number_bins_rad', default=0, type=int,help='Set this to a nonzero value to use that many'
                     'radial bins. These bins will be scaled such that they contain roughly the same number of points')
 parser.add_argument('--rzscale', default=1, type=float)
-parser.add_argument('-ct', '--cell_theta', default=120.0, type=float, help="choose cell theta (in degrees)")
+parser.add_argument('-ct', '--cell_theta', default=90, type=float, help="choose cell theta (in degrees)")
 args = parser.parse_args()
 
 location = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))  # Directory this script is in
@@ -70,6 +71,8 @@ ucell = np.array([[1, 0, 0], [np.cos(theta), np.sin(theta), 0], [0, 0, 1]])
 
 np.random.seed = args.random_seed  # args.random_noise
 p2d.NBINSRAD = args.number_bins_rad
+p2d.theta = theta
+dens2.theta = theta
 
 if args.random_noise > 0:
 
@@ -180,7 +183,7 @@ else:  #load trajectory or npz file
                 lt.process_gro_mdtraj(top_file, traj_file, tfname)   					#Process trajectory into numpy array.
                 print('done')
 
-        traj = np.load(tfname+".npz")							#load processed trajectory
+        traj = np.load(tfname+".npz")  # load processed trajectory
 
         T = traj['coords']
 
@@ -189,9 +192,10 @@ else:  #load trajectory or npz file
             T[..., 1] = T[..., 1] / np.sin(theta)
             T[..., 0] = T[..., 0] - T[..., 1]*np.cos(theta)
 
-        rad = dens2.load_radii("%s/radii.txt" % location)					#load radii definitions from file
+        rad = dens2.load_radii("%s/radii.txt" % location)  # load radii definitions from file
 
-        dens2.compute_sf(T[args.first_frame:args.end_frame,...],traj['dims'][args.first_frame:args.end_frame,...],traj['typ'],sfname,rad,ucell,args.spatial_resolution) #compute time-averaged 3d structure factor and save to sfname.npz
+        dens2.compute_sf(T[args.first_frame:args.end_frame, ...], traj['dims'][args.first_frame:args.end_frame, ...],
+                         traj['typ'], sfname, rad, ucell, args.spatial_resolution)
 
 print("reloading SF...")
 dpl = np.load(sfname+".npz")  # load 3d SF
