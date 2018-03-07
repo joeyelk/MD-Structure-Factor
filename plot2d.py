@@ -439,7 +439,7 @@ def PLOT_RAD_NEW(D,wavelength_angstroms,ucell,**kwargs):
 		
 		# print pts.shape
 		# exit()
-		MCpts=tm2(pts,ucell)
+		#MCpts=tm2(pts,ucell)
 		MCpts=mc_inv(pts,ucell)
 		# MCpts=tm3(pts,b1,b2,b3)								#transform to monoclinic cell
 		# MCpts=pts
