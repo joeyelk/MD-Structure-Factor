@@ -33,6 +33,7 @@ def load_radii(filename):
         out[l[1]] = (float(l[0]),float(l[2])/100.0)
         #a list with 2 values, the number of electrons and the distribution sigma
         #divide by 100 to convert pm to angstroms
+    # print(out)
 
     return out
 
@@ -187,7 +188,7 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
     """
 
     r, L = rescale(r, L)  # keep this inside compute_fft to allow coordinates to be rescaled to whichever numpy view is passed
-    L[1] *= np.sin(np.pi / 3)
+    # L[1] *= np.sin(np.pi / 3)
 
     Nspatialgrid = (L/Sres).astype(int)
 
@@ -196,7 +197,7 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
              if L[i]/Nspatialgrid[i] > Sres:
                  Nspatialgrid[i] += 1
 
-    for i in range(3):  #ensure Nspatialgrid is even
+    for i in range(3):  # ensure Nspatialgrid is even
         Nspatialgrid[i] += Nspatialgrid[i] % 2
 
     if PRINT_DETAILS:    #print spatial resolution details
@@ -238,9 +239,10 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
     # ids = [a.name for a in t.topology.atoms]
     # res = [a.residue.name for a in t.topology.atoms]
     # full_box = t.unitcell_vectors
-    # box_gromacs = [full_box[0, 0, 0], full_box[0, 1, 1], full_box[0, 2, 2], full_box[0, 0, 1], full_box[0, 2, 0],
-    #                 full_box[0, 1, 0], full_box[0, 0, 2], full_box[0, 1, 2], full_box[0, 2, 0]]
-    # file_rw.write_gro_pos(r[0, :, :]/10, 'test.gro', ids=ids, res=res, box=L/10)
+    # # box_gromacs = [full_box[0, 0, 0], full_box[0, 1, 1], full_box[0, 2, 2], full_box[0, 0, 1], full_box[0, 2, 0],
+    # #                 full_box[0, 1, 0], full_box[0, 0, 2], full_box[0, 1, 2], full_box[0, 2, 0]]
+    # box = [full_box[0, 0, 0], full_box[0, 0, 0], full_box[0, 2, 2]]
+    # file_rw.write_gro_pos(r[0, :, :]/10, 'test.gro', ids=ids, res=res, box=box)
     # exit()
 
     bdict = get_borders(rad, dr, set(typ))	#dictionary of borders by atom type

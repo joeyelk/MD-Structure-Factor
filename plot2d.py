@@ -16,6 +16,9 @@ import time
 import datetime
 import matplotlib
 from scipy.optimize import curve_fit
+from matplotlib.colors import LogNorm
+
+colorbar = True
 
 matplotlib.rc('axes', color_cycle=['r', 'g', 'b', '#004060'])
 
@@ -343,19 +346,20 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
     Z = D[0, 0, :, 2]
     SF = D[..., 3]
 
-    print(X[len(X)//2], Y[len(Y)//2])
-    #print(SF[len(X)//2, len(Y)//2, :]/1*10**-9)
-    #plt.plot(Z, SF[len(X)//2, len(Y)//2, :])
-    #start_fit = len(Z) // 2 + 15
-    #end_fit = -1 - 15
-    #p = np.array([30, 1.4])
-    # solp, cov_x = curve_fit(lorentz, Z[start_fit:end_fit], SF[len(X)//2, len(Y)//2, start_fit:end_fit], p)
-    # plt.plot(Z[start_fit:end_fit], lorentz(Z[start_fit:end_fit], solp[0], solp[1]))
-    #print(np.max(SF[len(X)//2, len(Y)//2,:]))
-    #plt.xlabel('($\AA^{-1}$)')
-    #plt.ylabel('Intensity')
-    #plt.savefig('z_section.png')
-    #plt.show()
+    # print(X[len(X)//2], Y[len(Y)//2])
+    # print(SF[len(X)//2, len(Y)//2, :]/1*10**-9)
+    # #np.savez_compressed('50frames.npz', Z=Z, SF=SF[len(X)//2, len(Y)//2, :])
+    # plt.plot(Z, SF[len(X)//2, len(Y)//2, :])
+    # # # start_fit = len(Z) // 2 + 15
+    # # # end_fit = -1 - 15
+    # # # p = np.array([30, 1.4])
+    # # # solp, cov_x = curve_fit(lorentz, Z[start_fit:end_fit], SF[len(X)//2, len(Y)//2, start_fit:end_fit], p)
+    # # #plt.plot(Z[start_fit:end_fit], lorentz(Z[start_fit:end_fit], solp[0], solp[1]))
+    # # #print(np.max(SF[len(X)//2, len(Y)//2,:]))
+    # plt.xlabel('($\AA^{-1}$)')
+    # plt.ylabel('Intensity')
+    # plt.savefig('z_section.png')
+    # plt.show()
 
     ES = RegularGridInterpolator((X, Y, Z), SF, bounds_error=False)
 
@@ -365,7 +369,8 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
     NLEVELS = 200  # number of levels for contour plots
 
     ZBINS = Z.shape[0]  # 400
-
+    # print(ucell)
+    # exit()
     XR = (X[-1] - X[0])*ucell[0][0]
     YR = (Y[-1] - Y[0])*ucell[1][1]
 
@@ -399,11 +404,10 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
     mn = np.nanmin(oa)
     oa = np.where(np.isnan(oa), mn, oa)
 
-    rad_avg = np.average(oa)
+    rad_avg = np.average(oa)  # ???
     oa /= rad_avg  # normalize
 
-    # set up data for contourf plot
-
+    # set up data for contourf plot by making it symmetrical
     final = np.append(oa[::-1, :], oa[1:], axis=0)  # SF
     rfin = np.append(-rarr[::-1], rarr[1:])  # R
     zfin = np.append(z[:, 0, :], z[1:, 0, :], axis=0)  # Z
@@ -417,9 +421,9 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
     # MAX = np.amax(np.ma.masked_invalid(final))
 
     factor = 3.1
-    alkane_intensity = normalize_alkanes(rfin, zfin[0], final, 1.1, 1.6, 120)  # 1.4, 1.57
-
-    alkane_intensity = 2.26828710134
+    alkane_intensity = normalize_alkanes(rfin, zfin[0], final, 1.4, 1.57, 120)  # 1.4, 1.57
+    #alkane_intensity = final[-1, -1]
+    # alkane_intensity = 2.09104479976
 
     final /= alkane_intensity
     MIN = np.amin(final)
@@ -451,21 +455,23 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
     #        if np.linalg.norm([rfin[i], zfin[0][j]]) < 0.35:
     #            final[i, j] = 0
 
-    # plt.plot(zfin[0], final.T[:, rfin.shape[0]//2])
-    # plt.show()
+    plt.figure()
+    plt.plot(rfin, final[:, zfin[0].shape[0]//2])
+    # plt.savefig('SAXS_layered.png')
+    plt.show()
 
-    # plt.plot(rfin, final[:, zfin[0].shape[0]//2])
-    # plt.show()
-    # exit()
+    plt.figure()
+    #lvls = np.linspace(np.log10(final[-1, -1]), np.log10(np.amax(final)), 1000)
+    cs = plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap='jet', extend='max')
+    #plt.imshow(np.log10(final.T), vmin=np.log10(final[-1, -1]), vmax=np.log10(np.amax(factor)), aspect=(rfin.shape[0]/zfin[0].shape[0]), interpolation='gaussian', cmap='seismic')
 
-    cs = plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap='seismic', extend='max')
+
+    #cs = plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap='seismic', extend='max')
+
     #cs = plt.pcolormesh(rfin, zfin[0], final.T, vmax=factor, cmap='seismic')
     #heatmap = plt.imshow(final.T, cmap='seismic', vmax=factor*alkane_intensity, aspect=(rfin.shape[0]/zfin[0].shape[0]), interpolation='gaussian')
     # plt.show()
     # exit()
-
-    cs.cmap.set_under('k')
-    cs.set_clim(0, factor)
     
     # fig, ax = plt.subplots()
     # heatmap = ax.pcolormesh(rfin, zfin[0], final.T, cmap='jet', vmax=0.1)  # jet matches experiment
@@ -486,44 +492,53 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
     # plt.savefig('new_rzplot.png')
     # fig.clf()
 
-    cbar = plt.colorbar(format='%.1f')
+    if colorbar:
+        plt.colorbar(format='%.1f')
+        # cs.cmap.set_under('k')
+        # cs.set_clim(0, factor)
+    else:
+        plt.gcf().get_axes()[0].set_aspect(0.9)
+
     # from matplotlib import ticker
     # tick_locator = ticker.MaxNLocator(nbins=5)
     # cbar.locator = tick_locator
     # cbar.update_ticks()
     # cbar.ax.set_yticklabels(['%1.1f' % i for i in np.linspace(0, 2.5*alkane_intensity, 5)])
 
-    plt.title('S(r,z)', fontsize=14)
+    # plt.title('S(r,z)', fontsize=14)
     plt.xlabel('r ' + unitlab, fontsize=14)
     plt.ylabel('z ' + unitlab, fontsize=14)
-    # plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
-    # plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
+    plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
+    plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
     plt.gcf().get_axes()[0].tick_params(labelsize=14)
     plt.tight_layout()
     plt.savefig('rzplot.png')
-    plt.clf()
-    print('rzplot.png saved')
+    # plt.clf()
     plt.show()
-    # exit()
 
-    x2 = np.linspace(-Rmax, Rmax, RBINS*2 - 1)
+    print('rzplot.png saved')
+    exit()
+
+    plt.figure()
+    y2 = np.linspace(-Rmax, Rmax, RBINS*2 - 1)
     z2 = np.linspace(Z[0], Z[-1], RBINS)
 
-    xg2, yg2, zg2 = np.meshgrid(x2, np.asarray(0), z2)
+    xg2, yg2, zg2 = np.meshgrid(np.asarray(0), y2, z2)
     pts = np.vstack((xg2.ravel(), yg2.ravel(), zg2.ravel())).T
-    out2 = ES(pts).reshape(xg2.shape[1], xg2.shape[2])
+    out2 = ES(pts).reshape(yg2.shape[0], yg2.shape[2])
 
     o2n = out2[:, :] / rad_avg
 
-    cs = plt.contourf(xg2[0, :, :], zg2[0, :, :], o2n, levels=lvls, cmap='jet', extend='max')
+    cs = plt.contourf(yg2[:, 0, :], zg2[:, 0, :], o2n, levels=lvls*3, cmap='jet', extend='max')
     cs.cmap.set_under('k')
 
-    plt.xlabel('x ' + unitlab)
+    plt.xlabel('y ' + unitlab)
     plt.ylabel('z ' + unitlab)
-    plt.title('S(x,z)|$_{y=0}$')
+    plt.title('S(y,z)|$_{x=0}$')
 
     plt.colorbar()
-    plt.savefig('new_xzplot.png')
+    plt.savefig('new_yzplot.png')
+    plt.show()
     plt.clf()
 
     if False:
@@ -584,13 +599,15 @@ def normalize_alkanes(R, Z, Raw_Intensity, inner, outer, angle):
     print('Average Intensity in alkane chain region : %s' % avg_intensity)
 
     # I /= (counts*np.amax(intensity))
+    # I /= (counts*avg_intensity)
     #
     # plt.bar(bins, I, bw, color='#1f77b4')
     #
     # plt.xlabel('Angle with respect to $q_z=0$', fontsize=14)
     # plt.ylabel('Normalized integrated intensity', fontsize=14)
     # plt.gcf().get_axes()[0].tick_params(labelsize=14)
-    #
+    # plt.ylim(0,2)
+    # plt.xlim(-90, 90)
     # plt.tight_layout()
     # plt.savefig('angular_integration.png')
     # plt.show()
@@ -605,9 +622,11 @@ def tm2(D, ucell):
     a2 = ucell[1]
     a3 = ucell[2]
 
-    b1 = (np.cross(a2, a3))/(np.dot(a1, np.cross(a2, a3)))#
-    b2 = (np.cross(a3, a1))/(np.dot(a2, np.cross(a3, a1)))#*2.0*math.pi
-    b3 = (np.cross(a1, a2))/(np.dot(a3, np.cross(a1, a2)))#*2.0*math.pi
+    V = np.dot(a1, np.cross(a2, a3))
+
+    b1 = np.cross(a2, a3) / V
+    b2 = np.cross(a3, a1) / V  # *2.0*math.pi
+    b3 = np.cross(a1, a2) / V  #*2.0*math.pi
 
     Dnew = np.zeros_like(D)
 

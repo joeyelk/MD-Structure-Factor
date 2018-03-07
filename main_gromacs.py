@@ -59,7 +59,9 @@ parser.add_argument('-RS', '--random_seed', default=1, type=int,help='Set the ra
 parser.add_argument('-NBR', '--number_bins_rad', default=0, type=int,help='Set this to a nonzero value to use that many'
                     'radial bins. These bins will be scaled such that they contain roughly the same number of points')
 parser.add_argument('--rzscale', default=1, type=float)
-parser.add_argument('-ct', '--cell_theta', default=90, type=float, help="choose cell theta (in degrees)")
+parser.add_argument('-ct', '--cell_theta', default=120, type=float, help="choose cell theta (in degrees)")
+parser.add_argument('-nocbar', '--nocolorbar', action="store_true", help="Choose whether to plot colorbar")
+
 args = parser.parse_args()
 
 location = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))  # Directory this script is in
@@ -77,6 +79,10 @@ dens2.theta = theta
 if args.random_noise > 0:
 
     dens2.RANDOM_NOISE = args.random_noise
+
+if args.nocolorbar:
+
+    p2d.colorbar = False
 
 top_extension = {"gromacs": ".gro", "namd": ".psf"}
 traj_extension = {"gromacs": ".trr", "namd": ".dcd"}
@@ -158,9 +164,9 @@ elif args.random_counts > 0:	#create a random trajectory
     dims = np.ones((Rsteps, 3)) * Rboxsize
     coords = np.random.random((Rsteps, Ratoms, 3)) * dims[0,:]
 
-    name = np.zeros(Ratoms,dtype=object)
+    name = np.zeros(Ratoms, dtype=object)
     mass = np.zeros(Ratoms)
-    typ = np.zeros(Ratoms,dtype=object)
+    typ = np.zeros(Ratoms, dtype=object)
 
     typ[:] = args.random_label
 
