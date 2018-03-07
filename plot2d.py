@@ -440,6 +440,7 @@ def PLOT_RAD_NEW(D,wavelength_angstroms,ucell,**kwargs):
 		# print pts.shape
 		# exit()
 		MCpts=tm2(pts,ucell)
+		MCpts=mc_inv(pts,ucell)
 		# MCpts=tm3(pts,b1,b2,b3)								#transform to monoclinic cell
 		# MCpts=pts
 		
@@ -773,7 +774,35 @@ def PLOT_EW_NEW_OLD(D,wavelength_angstroms,ucell,**kwargs):
 	print ucell[2]
 	exit()
 	
+def mc_inv(D,ucell):
+		
+	a1=ucell[0]
+	a2=ucell[1]
+	a3=ucell[2]
+	
 
+	
+	b1=(np.cross(a2,a3))/(np.dot(a1,np.cross(a2,a3)))#
+	b2=(np.cross(a3,a1))/(np.dot(a2,np.cross(a3,a1)))#*2.0*math.pi
+	b3=(np.cross(a1,a2))/(np.dot(a3,np.cross(a1,a2)))#*2.0*math.pi 
+	
+	
+	b_inv=np.linalg.inv(np.vstack((b1,b2,b3)))
+	Dnew=np.zeros_like(D)
+	
+	X=D[...,0]
+	Y=D[...,1]
+	Z=D[...,2]
+	
+	for ix in xrange(D.shape[0]):			
+		Dnew[ix,0:3]+=X[ix]*b_inv[0]  #(X[ix]-X[X.shape[0]/2])*b1
+		
+	for iy in xrange(D.shape[0]):			
+		Dnew[iy,0:3]+=Y[iy]*b_inv[1]  #(Y[iy]-Y[Y.shape[0]/2])*b2
+		
+	for iz in xrange(D.shape[0]):			
+		Dnew[iz,0:3]+=Z[iz]*b_inv[2]  #(Z[iz]-Z[Z.shape[0]/2])*b3
+	return Dnew
 	
 def tm3(D,b1,b2,b3):
 	
