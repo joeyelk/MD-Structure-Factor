@@ -458,7 +458,7 @@ def PLOT_RAD_NEW(D,wavelength_angstroms,ucell,**kwargs):
 			# exit()
 		# print pts.shape
 		# exit()
-<<<<<<< HEAD
+
 		# MCpts=to_monoclinic(pts,ucell)
 		# MCpts=tm2(pts,ucell)
 		# print pts.shape
@@ -471,12 +471,12 @@ def PLOT_RAD_NEW(D,wavelength_angstroms,ucell,**kwargs):
 		# print buf.all()==MCpts.all()
 		
 
-=======
+
 		#MCpts=tm2(pts,ucell)
-		MCpts=mc_inv(pts,ucell)
+		# MCpts=mc_inv(pts,ucell)
 		# MCpts=tm3(pts,b1,b2,b3)								#transform to monoclinic cell
 		# MCpts=pts
->>>>>>> 5564603e74c4be967700982901634e962ac27d4f
+
 		
 		oa[ir,:]=np.average(ES(MCpts).reshape(r.shape),axis=1)	#store average values in final array
 
