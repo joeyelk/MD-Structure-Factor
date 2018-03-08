@@ -121,7 +121,7 @@ def csplot(X,Y,Z,contours,lab,xlab,ylab,**kwargs):
 	
 	#plt.savefig(path+"rzplot"+format,dpi=DPI)
 	#plt.clf()
-	
+
 
 #plot slice through structure factor
 def sfplot(data,**kwargs):
@@ -214,7 +214,7 @@ def radial_integrate(D,Nbins,outputname):
 	plt.xlim(0,5)
 	plt.savefig(outputname,dpi=DPI)
 	
-	
+
 	#print H
 	#print type(H)
 	#print H.shape
@@ -389,13 +389,18 @@ def PLOT_RAD_NEW(D,wavelength_angstroms,ucell,**kwargs):
 	Z=D[0,0,:,2]
 	SF=D[...,3]
 	
+	
+	print X[1]-X[0]
+	print Y[1]-Y[0]
+	print Z[1]-Z[0]
+	
 	# print ucell
 	# exit()
 		
 	ES = RegularGridInterpolator((X, Y, Z), SF,bounds_error=False)
 	
 	THETA_BINS_PER_INV_ANG=20.
-	MIN_THETA_BINS=10		#minimum allowed bins
+	MIN_THETA_BINS=1		#minimum allowed bins
 	RBINS=400		
 	NLEVELS=200		#number of levels for contour plots
 	
@@ -425,11 +430,17 @@ def PLOT_RAD_NEW(D,wavelength_angstroms,ucell,**kwargs):
 	b3=(np.cross(a1,a2))/(np.dot(a3,np.cross(a1,a2)))#*2.0*math.pi 
 	
 	
+	b_inv=np.linalg.inv(np.vstack((b1,b2,b3)))
+	
+	
+	
 	for ir in trange(rarr.shape[0]):
 		
 		NTHETABINS=max(int(THETA_BINS_PER_INV_ANG*circ[ir]),MIN_THETA_BINS)	#calculate number of bins at this r
 		thetas=np.linspace(0.0,np.pi*2.0,NTHETABINS,endpoint=False)		#generate theta array
-		
+		# thetas+=np.random.rand(1,1)[0]*np.pi*2.		#introduce random offset, to avoid biasing the sampling
+		# print np.random.rand(1,1)
+		# exit()
 		t,r,z=np.meshgrid(thetas,rarr[ir],zar)							#generate grid of cylindrical points
 		
 		xar=r*np.cos(t)													#set up x,y coords
@@ -437,29 +448,39 @@ def PLOT_RAD_NEW(D,wavelength_angstroms,ucell,**kwargs):
 		
 		pts=np.vstack((xar.ravel(),yar.ravel(),z.ravel())).T		#reshape for interpolation
 		
+			# print pts
+			# print pts.shape
+		# plt.scatter(pts[:,0],pts[:,1],s=1)
+			# plt.plot(pts[0])
+			# plt.plot(pts[1])
+		# if ir==50: #rarr.shape[0]-1:
+			# plt.show()
+			# exit()
 		# print pts.shape
 		# exit()
-		MCpts=tm2(pts,ucell)
-		# MCpts=tm3(pts,b1,b2,b3)								#transform to monoclinic cell
-		# MCpts=pts
+		# MCpts=to_monoclinic(pts,ucell)
+		# MCpts=tm2(pts,ucell)
+		# print pts.shape
+		# print b_inv.shape
+		# exit()
+		
+		
+		MCpts=np.matmul(pts,b_inv)
+		# buf=np.einsum("ij,jl->il",pts,b_inv)
+		# print buf.all()==MCpts.all()
+		
+
 		
 		oa[ir,:]=np.average(ES(MCpts).reshape(r.shape),axis=1)	#store average values in final array
-		# print np.amin(oa)
-		# print np.amax(oa)
-		# exit()
+
 		
 	
 	# oa=np.where(oa.isnan
 	# oa=np.nan_to_num(oa)
 	mn=np.nanmin(oa)
-	print oa
-	print np.nanmin(oa)
-	print np.amax(oa)
+	
 	oa=np.where(np.isnan(oa),mn,oa)
-	
-	print np.amin(oa)
-	print np.amax(oa)
-	
+		
 	# exit()
 	
 	rad_avg=np.average(oa)	
@@ -490,6 +511,8 @@ def PLOT_RAD_NEW(D,wavelength_angstroms,ucell,**kwargs):
 	plt.title('S(r,z)')
 	plt.xlabel('r '+unitlab)
 	plt.ylabel('z '+unitlab)
+	
+	plt.axes().set_aspect('equal', 'datalim')
 	
 	plt.savefig('new_rzplot.png')
 	plt.clf()
@@ -824,6 +847,39 @@ def tm2(D,ucell):
 	return Dnew
 	
 	
+def mc_inv(D,ucell):
+		
+	a1=ucell[0]
+	a2=ucell[1]
+	a3=ucell[2]
+	
+
+	
+	b1=(np.cross(a2,a3))/(np.dot(a1,np.cross(a2,a3)))#
+	b2=(np.cross(a3,a1))/(np.dot(a2,np.cross(a3,a1)))#*2.0*math.pi
+	b3=(np.cross(a1,a2))/(np.dot(a3,np.cross(a1,a2)))#*2.0*math.pi 
+	
+	
+	b_inv=np.linalg.inv(np.vstack((b1,b2,b3)))
+	Dnew=np.zeros_like(D)
+	
+	X=D[...,0]
+	Y=D[...,1]
+	Z=D[...,2]
+	
+	for ix in xrange(D.shape[0]):			
+		Dnew[ix,0:3]+=X[ix]*b_inv[0]  #(X[ix]-X[X.shape[0]/2])*b1
+		
+	for iy in xrange(D.shape[0]):			
+		Dnew[iy,0:3]+=Y[iy]*b_inv[1]  #(Y[iy]-Y[Y.shape[0]/2])*b2
+		
+	for iz in xrange(D.shape[0]):			
+		Dnew[iz,0:3]+=Z[iz]*b_inv[2]  #(Z[iz]-Z[Z.shape[0]/2])*b3
+	return Dnew
+	
+
+
+	
 def to_monoclinic(coords,ucell):		#monoclinic for now
 	out=coords.copy()
 	out[...,1]/=ucell[1,1]
@@ -846,6 +902,14 @@ def to_cartesian(coords,ucell):
 	
 def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d data,SF,wavelength in angstroms
 		
+	# print D.shape
+	# print "d"
+	# plt.contourf(D[:,0,0,0],D[0,:,0,1],D[:,:,50,3])
+	# plt.show()
+	
+	# exit()
+		
+	
 	PLOT_RAD_NEW(D,wavelength_angstroms,ucell,**kwargs)
 	exit()
 		
@@ -903,6 +967,11 @@ def Plot_Ewald_triclinic(D,wavelength_angstroms,ucell,**kwargs):  #pass full 3d 
 	b1=(np.cross(a2,a3))/(np.dot(a1,np.cross(a2,a3)))#
 	b2=(np.cross(a3,a1))/(np.dot(a2,np.cross(a3,a1)))#*2.0*math.pi
 	b3=(np.cross(a1,a2))/(np.dot(a3,np.cross(a1,a2)))#*2.0*math.pi 
+	
+	
+	b_inv=np.vstack((b1,b2,b3))
+	print b_inv
+	# exit()
 	
 	Dnew=np.zeros_like(D)
 	
