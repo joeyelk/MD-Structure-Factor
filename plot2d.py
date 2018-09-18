@@ -7,16 +7,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from scipy.interpolate import RegularGridInterpolator
-from scipy.interpolate import griddata
 from scipy.interpolate import LinearNDInterpolator
 from scipy.interpolate import NearestNDInterpolator
 import math
 from tqdm import trange
 import time
-import datetime
 import matplotlib
+from matplotlib.widgets import Slider, Button, RadioButtons
 from scipy.optimize import curve_fit
-from matplotlib.colors import LogNorm
+
 
 colorbar = True
 
@@ -336,19 +335,204 @@ def lorentz(points, a, b):
     return 1 / (1 + x**2)
 
 
+def inverse_ft(D, ucell):
+
+    X = D[:, 0, 0, 0]
+    Y = D[0, :, 0, 1]
+    Z = D[0, 0, :, 2]
+    Z += Z[np.argmin(abs(Z))]
+
+    SF = D[..., 3]
+
+    fbin_x = X[1] - X[0]  # size of x bins in fourier space
+    fbin_y = Y[1] - Y[0]  # size of y bins in fourier space
+    fbin_z = Z[1] - Z[0]  # size of z bins in fourier space
+
+    real_x = 2 * np.pi / fbin_x  # largest x dimension in real space
+    real_y = 2 * np.pi / fbin_y  # largest y dimension in real space
+    real_z = 2 * np.pi / fbin_z  # largest z dimension in real space
+
+    rbin_x = real_x / X.shape[0]
+    rbin_y = real_y / Y.shape[0]
+    rbin_z = real_z / Z.shape[0]
+
+    X_real = np.linspace(-real_x / 2, real_x / 2, X.shape[0])
+    Y_real = np.linspace(-real_y / 2, real_y / 2, Y.shape[0])
+    Z_real = np.linspace(-real_z / 2, real_z / 2, Z.shape[0])
+
+    # reorder lists so they conform to numpy (https://docs.scipy.org/doc/numpy-1.14.0/reference/generated/numpy.fft.ifftn.html)
+    start = list(X).index(0)
+    X_reordered = np.concatenate((X[start:], X[:start]))
+    ndx_x = [list(X).index(i) for i in X_reordered]
+
+    start = list(Y).index(0)
+    Y_reordered = np.concatenate((Y[start:], Y[:start]))
+    ndx_y = [list(Y).index(i) for i in Y_reordered]
+
+    start = list(Z).index(0)
+    Z_reordered = np.concatenate((Z[start:], Z[:start]))
+    ndx_z = [list(Z).index(i) for i in Z_reordered]
+
+    SF_reordered = SF[ndx_x, :, :]
+    SF_reordered = SF_reordered[:, ndx_y, :]
+    SF_reordered = SF_reordered[:, :, ndx_z]
+
+    # inverse fourier transform
+    inverse_fft = np.fft.ifftn(SF_reordered)
+
+    # reorder again
+    inverse_fft = inverse_fft[ndx_x, :, :]
+    inverse_fft = inverse_fft[:, ndx_y, :]
+    inverse_fft = inverse_fft[:, :, ndx_z]
+
+    # fourier transform of inversion as a test
+    # ft = np.abs(np.fft.fftn(inverse_fft))**2
+    # ft = ft[ndx_x, :]
+    # ft = ft[:, ndx_y]
+    # plt.imshow(ft)
+    # plt.show()
+
+    inverse_fft = inverse_fft.real / np.amax(inverse_fft.real)
+
+    final, rfin, zfin = angle_average(X_real, Y_real, Z_real, inverse_fft, ucell=ucell)
+
+    rbound1 = 0
+    rbound2 = 0
+    while rfin[rbound1] < -15:
+        rbound1 += 1
+    while rfin[rbound2] < 15:
+        rbound2 += 1
+
+    zbound1 = 0
+    zbound2 = 0
+    while zfin[0][zbound1] < -15:
+        zbound1 += 1
+    while zfin[0][zbound2] < 15:
+        zbound2 += 1
+
+    levels = np.linspace(np.amin(final), 0.001 * np.amax(final), 200)
+    plt.contourf(rfin[rbound1:rbound2], zfin[0][zbound1:zbound2], final[rbound1:rbound2, zbound1:zbound2].T,
+                 levels=levels, cmap='seismic', extend='max')
+    plt.colorbar()
+    plt.xlabel('r ($\AA$)')
+    plt.ylabel('z ($\AA$)')
+    plt.show()
+    exit()
+
+
+def angle_average(X, Y, Z, SF, ucell=None):
+
+    ES = RegularGridInterpolator((X, Y, Z), SF, bounds_error=False)
+
+    THETA_BINS_PER_INV_ANG = 20.
+    MIN_THETA_BINS = 10  # minimum allowed bins
+    RBINS = 100
+
+    if ucell is not None:
+
+        a1 = ucell[0]
+        a2 = ucell[1]
+        a3 = ucell[2]
+
+        b1 = (np.cross(a2, a3)) / (np.dot(a1, np.cross(a2, a3)))
+        b2 = (np.cross(a3, a1)) / (np.dot(a2, np.cross(a3, a1)))
+        b3 = (np.cross(a1, a2)) / (np.dot(a3, np.cross(a1, a2)))
+
+        b_inv = np.linalg.inv(np.vstack((b1, b2, b3)))
+
+    ZBINS = Z.shape[0]  # 400
+
+    XR = (X[-1] - X[0])
+    YR = (Y[-1] - Y[0])
+
+    Rmax = min(XR, YR) / 2.0
+    Rmax *= 0.95
+
+    rarr, rspace = np.linspace(0.0, Rmax, RBINS, retstep=True)
+    zar = np.linspace(Z[0], Z[-1], ZBINS)
+
+    oa = np.zeros((rarr.shape[0], zar.shape[0]))
+    circ = 2.*np.pi*rarr  # circumference
+
+    for ir in range(rarr.shape[0]):
+
+        NTHETABINS = max(int(THETA_BINS_PER_INV_ANG*circ[ir]), MIN_THETA_BINS)  #calculate number of bins at this r
+        thetas = np.linspace(0.0, np.pi*2.0, NTHETABINS, endpoint=False)  # generate theta array
+
+        t, r, z = np.meshgrid(thetas, rarr[ir], zar)  # generate grid of cylindrical points
+
+        xar = r*np.cos(t)  # set up x,y coords
+        yar = r*np.sin(t)
+
+        pts = np.vstack((xar.ravel(), yar.ravel(), z.ravel())).T  # reshape for interpolation
+
+        if ucell is not None:
+            # pts = mc_inv(pts, ucell)
+            pts = np.matmul(pts, b_inv)
+
+        oa[ir, :] = np.average(ES(pts).reshape(r.shape), axis=1)  # store average values in final array
+
+    mn = np.nanmin(oa)
+    oa = np.where(np.isnan(oa), mn, oa)
+
+    rad_avg = np.average(oa)  # ???
+    oa /= rad_avg  # normalize
+
+    # set up data for contourf plot by making it symmetrical
+    final = np.append(oa[::-1, :], oa[1:], axis=0)  # SF
+    rfin = np.append(-rarr[::-1], rarr[1:])  # R
+    zfin = np.append(z[:, 0, :], z[1:, 0, :], axis=0)  # Z
+
+    return final, rfin, zfin
+
+
+def Rspots(R, Z, waxs, theta=37, theta_sigma=(7, 5), bounds=(1.256, 1.57), cmap='jet'):
+
+    spots = np.copy(waxs.T)
+    inner = bounds[0]
+    outer = bounds[1]
+    I = []
+
+    for i in range(R.shape[0]):
+        for j in range(Z.shape[0]):
+            if inner < np.linalg.norm([R[i], Z[j]]) < outer:
+                angle = (180 / np.pi) * np.arctan(Z[j] / R[i])
+                if (theta - theta_sigma[0]) < angle < (theta + theta_sigma[1]) or \
+                        (theta - theta_sigma[0]) < (angle - 2*angle) < (theta + theta_sigma[1]):
+                    spots[i, j] = 100
+                    I.append(waxs[j, i])
+
+    average_intensity = np.mean(I)
+
+    plt.figure()
+    levels = np.linspace(0, 3.1, 200)
+
+    plt.contourf(R, Z, spots.T, cmap=cmap, levels=levels, extend='max')
+    plt.xlim(-2.5, 2.5)
+    plt.ylim(-2.5, 2.5)
+    plt.figure()
+    plt.hist(I, bins=25)
+    plt.title('Average intensity of R-spots: %.2f' % average_intensity)
+    # plt.show()
+
+    return average_intensity
+
+
 def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
 
     if not os.path.exists(path):
         os.makedirs(path)
+
+    # inverse_ft(D, ucell)
 
     X = D[:, 0, 0, 0]
     Y = D[0, :, 0, 1]
     Z = D[0, 0, :, 2]
     SF = D[..., 3]
 
-    # print(X[len(X)//2], Y[len(Y)//2])
-    # print(SF[len(X)//2, len(Y)//2, :]/1*10**-9)
-    # #np.savez_compressed('50frames.npz', Z=Z, SF=SF[len(X)//2, len(Y)//2, :])
+    # # print(X[len(X)//2], Y[len(Y)//2])
+    # # print(SF[len(X)//2, len(Y)//2, :]/1*10**-9)
+    # np.savez_compressed('50frames.npz', Z=Z, SF=SF[len(X)//2, len(Y)//2, :])
     # plt.plot(Z, SF[len(X)//2, len(Y)//2, :])
     # # # start_fit = len(Z) // 2 + 15
     # # # end_fit = -1 - 15
@@ -356,17 +540,29 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
     # # # solp, cov_x = curve_fit(lorentz, Z[start_fit:end_fit], SF[len(X)//2, len(Y)//2, start_fit:end_fit], p)
     # # #plt.plot(Z[start_fit:end_fit], lorentz(Z[start_fit:end_fit], solp[0], solp[1]))
     # # #print(np.max(SF[len(X)//2, len(Y)//2,:]))
-    # plt.xlabel('($\AA^{-1}$)')
+    # plt.xlabel('q$_z$ ($\AA^{-1}$)')
     # plt.ylabel('Intensity')
     # plt.savefig('z_section.png')
+    # #print('Max intensity / average intensity = %.2f' % (np.amax(SF[len(X)//2, len(Y)//2, :]) / np.mean(SF[len(X)//2,len(Y)//2, :])))
     # plt.show()
+    # exit()
 
     ES = RegularGridInterpolator((X, Y, Z), SF, bounds_error=False)
 
     THETA_BINS_PER_INV_ANG = 20.
-    MIN_THETA_BINS = 10  # minimum allowed bins
-    RBINS = 400 
+    MIN_THETA_BINS = 1  # minimum allowed bins
+    RBINS = 400
     NLEVELS = 200  # number of levels for contour plots
+
+    a1 = ucell[0]
+    a2 = ucell[1]
+    a3 = ucell[2]
+
+    b1 = (np.cross(a2, a3)) / (np.dot(a1, np.cross(a2, a3)))
+    b2 = (np.cross(a3, a1)) / (np.dot(a2, np.cross(a3, a1)))
+    b3 = (np.cross(a1, a2)) / (np.dot(a3, np.cross(a1, a2)))
+
+    b_inv = np.linalg.inv(np.vstack((b1, b2, b3)))
 
     ZBINS = Z.shape[0]  # 400
     # print(ucell)
@@ -395,24 +591,24 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
 
         pts = np.vstack((xar.ravel(), yar.ravel(), z.ravel())).T  # reshape for interpolation
 
-        if theta != np.pi/2:
-            MCpts = tm2(pts, ucell)  # transform to monoclinic cell
-            oa[ir, :] = np.average(ES(MCpts).reshape(r.shape), axis=1)  # store average values in final array
-        else:
-            oa[ir, :] = np.average(ES(pts).reshape(r.shape), axis=1)  # store average values in final array
+        MCpts = np.matmul(pts, b_inv)
+
+        #MCpts = mc_inv(pts,ucell)
+
+        oa[ir, :] = np.average(ES(MCpts).reshape(r.shape), axis=1)  # store average values in final array
 
     mn = np.nanmin(oa)
     oa = np.where(np.isnan(oa), mn, oa)
 
-    rad_avg = np.average(oa)  # ???
-    oa /= rad_avg  # normalize
+    # rad_avg = np.average(oa)  # ???
+    # oa /= rad_avg  # normalize
 
     # set up data for contourf plot by making it symmetrical
     final = np.append(oa[::-1, :], oa[1:], axis=0)  # SF
     rfin = np.append(-rarr[::-1], rarr[1:])  # R
     zfin = np.append(z[:, 0, :], z[1:, 0, :], axis=0)  # Z
 
-    # plt.plot(rfin, final.T[int(zfin.shape[1] / 2), :])
+    # plt.plot(zfin[0], final.T[:, int(rfin.size / 2)])
     # plt.show()
     # exit()
     unitlab = '($\AA^{-1}$)'  # Angstroms
@@ -420,49 +616,62 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
     # MIN = np.amin(np.ma.masked_invalid(final))
     # MAX = np.amax(np.ma.masked_invalid(final))
 
-    factor = 3.1
+    factor = 4.2
     alkane_intensity = normalize_alkanes(rfin, zfin[0], final, 1.4, 1.57, 120)  # 1.4, 1.57
+    #alkane_intensity = normalize_alkanes(rfin, zfin[0], final, 0.8, 1.2, 120)  # 1.4, 1.57
     #alkane_intensity = final[-1, -1]
     # alkane_intensity = 2.09104479976
 
+    #final /= final[0, 0]  # normalize according to background
     final /= alkane_intensity
     MIN = np.amin(final)
     MAX = np.amax(final)
 
-    lvls = np.linspace(0, factor, NLEVELS)  # contour levels
+    # lvls = np.linspace(0, factor, NLEVELS)  # contour levels
+    rlimits = [np.argmin(np.abs(rfin + 2.5)), np.argmin(np.abs(rfin - 2.5))]
+    zlimits = [np.argmin(np.abs(zfin[0] + 2.5)), np.argmin(np.abs(zfin[0] - 2.5))]
 
-    # restricted = np.zeros_like(final)
-    # for i in range(rfin.shape[0]):
-    #     for j in range(zfin[0].shape[0]):
-    #         if 0.9 < np.linalg.norm([rfin[i], zfin[0][j]]) < 2:
-    #             angle = (180/np.pi)*np.arctan(zfin[0][j]/rfin[i])
-    #             if angle > 60 or angle < -60:
-    #                 restricted[i, j] = final[i, j]
-    #
+    MIN = np.amin(final[rlimits[0]:rlimits[1], zlimits[0]:zlimits[1]])
+    MIN = 0.4
+    # MAX = 7.67
+
+    #lvls = np.linspace(np.log10(MIN), np.log10(MAX), NLEVELS)
+    lvls = np.linspace(0, factor, NLEVELS)
+
+    restricted = np.zeros_like(final)
+    for i in range(rfin.shape[0]):
+        for j in range(zfin[0].shape[0]):
+            if 0.9 < np.linalg.norm([rfin[i], zfin[0][j]]) < 2:
+                angle = (180/np.pi)*np.arctan(zfin[0][j]/rfin[i])
+                if angle > 60 or angle < -60:
+                    restricted[i, j] = final[i, j]
+
     # binarea = (rfin[1] - rfin[0]) * (zfin[0][1] - zfin[0][0])
     # print('Bin area: %s' % binarea)
     # print(np.amax(restricted))
     # print(np.count_nonzero(restricted))
     # print(np.sum(restricted))
-    #
+
     # plt.imshow(restricted.T, aspect=(rfin.shape[0]/zfin[0].shape[0]), vmax=0.05*np.amax(restricted))
     # plt.show()
     # exit()
 
-    # blot out middle circle
-    #for i in range(rfin.shape[0]):
+    #blot out middle circle
+    # for i in range(rfin.shape[0]):
     #    for j in range(zfin[0].shape[0]):
     #        if np.linalg.norm([rfin[i], zfin[0][j]]) < 0.35:
     #            final[i, j] = 0
 
-    plt.figure()
-    plt.plot(rfin, final[:, zfin[0].shape[0]//2])
-    # plt.savefig('SAXS_layered.png')
-    plt.show()
+    # plot 1D SAXS
+    # plt.figure()
+    # plt.plot(rfin, final[:, zfin[0].shape[0]//2])
+    # # plt.savefig('SAXS_layered.png')
+    # plt.show()
 
     plt.figure()
     #lvls = np.linspace(np.log10(final[-1, -1]), np.log10(np.amax(final)), 1000)
-    cs = plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap='jet', extend='max')
+    cmap = 'jet'
+    cs = plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap=cmap, extend='max')
     #plt.imshow(np.log10(final.T), vmin=np.log10(final[-1, -1]), vmax=np.log10(np.amax(factor)), aspect=(rfin.shape[0]/zfin[0].shape[0]), interpolation='gaussian', cmap='seismic')
 
 
@@ -492,6 +701,47 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
     # plt.savefig('new_rzplot.png')
     # fig.clf()
 
+    # plt.subplots_adjust(left=0.25, bottom=0.25)
+    # plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
+    # plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
+    # contour_axis = plt.gca()
+    # axcolor = 'lightgoldenrodyellow'
+    # # Place sliders
+    # ax_intensity = plt.axes([0.25, 0.1, 0.65, 0.03], facecolor=axcolor)
+    #
+    # s_intensity = Slider(ax_intensity, 'Max Intensity', 0.1, 100.0, valinit=3.1, color='blue')
+    #
+    # def colorfunc(label):
+    #     global cmap
+    #     cmap = label
+    #     contour_axis.clear()
+    #     contour_axis.contourf(rfin, zfin[0], final.T, levels=lvls, cmap=cmap, extend='max')
+    #     plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
+    #     plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
+    #     plt.draw()
+    #
+    # def update(val):
+    #     factor = s_intensity.val
+    #     lvls = np.linspace(0, factor, NLEVELS)
+    #     contour_axis.clear()
+    #     contour_axis.contourf(rfin, zfin[0], final.T, levels=lvls, cmap=cmap, extend='max')
+    #     plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
+    #     plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
+    #     plt.draw()
+    #
+    # resetax = plt.axes([0.8, 0.025, 0.1, 0.04])
+    # button = Button(resetax, 'Reset', color=axcolor, hovercolor='0.975')
+    #
+    # def reset(event):
+    #     s_intensity.reset()
+    #
+    # button.on_clicked(reset)
+    # rax = plt.axes([0.025, 0.5, 0.15, 0.3], facecolor=axcolor)
+    # radio = RadioButtons(rax, ('jet', 'seismic', 'plasma', 'cool', 'winter', 'RdYlBu', 'Spectral'), active=0)
+    #
+    # s_intensity.on_changed(update)
+    # radio.on_clicked(colorfunc)
+
     if colorbar:
         plt.colorbar(format='%.1f')
         # cs.cmap.set_under('k')
@@ -506,19 +756,206 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
     # cbar.ax.set_yticklabels(['%1.1f' % i for i in np.linspace(0, 2.5*alkane_intensity, 5)])
 
     # plt.title('S(r,z)', fontsize=14)
-    plt.xlabel('r ' + unitlab, fontsize=14)
-    plt.ylabel('z ' + unitlab, fontsize=14)
+    # plt.clf()
+    # plt.show()
+
+    # plt.figure()
+    # plt.plot(zfin[0], final[rfin.size // 2, :])
+    # print(zfin[0])
+    # plt.show()
+
+    def onclick(event):
+
+        print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+              ('double' if event.dblclick else 'single', event.button,
+               event.x, event.y, event.xdata, event.ydata))
+
+        # find which index in waxs
+        xd = np.argmin(np.abs(rfin - event.xdata))
+        yd = np.argmin(np.abs(zfin[0] - event.ydata))
+        print(final[xd, yd])
+        # # print(rfin[xd], event.xdata)
+        # # print[yd], event.ydata)
+        # print(final[yd, xd])  # it seems that the transpose is plotted
+
+    # Get intensity of various reflections
+    # plot z-slices
+    # plt.figure()
+    # for i in range(-10, 10):
+    #     plt.plot(zfin[0], final.T[:, final.shape[0]//2 + i])
+
+    # plt.figure()
+    # plt.plot(zfin[0], final.T[:, final.shape[0]//2])
+    # plt.show()
+    # exit()
+
+    # plot maximum intensity of each z-slice
+    # plt.plot(np.linspace(-100, 99, 200), np.amax(waxs[:, waxs.shape[0]//2 - 100:waxs.shape[0]//2 + 100], axis=0))
+    # plt.plot(np.linspace(-10, 9, 20), np.amax(waxs[R_double_bottom:R_double_top,
+    #                                           waxs.shape[0]//2 - 10:waxs.shape[0]//2 + 10], axis=0))
+    # plt.show()
+
+    # Q_R and Q_Z CROSS_SECTIONS OF R_PI WITH GAUSSIAN AND LORENTZIAN FITS
+    def gaussian(points, mean, sigma, amplitude, yshift):
+
+        return yshift + (amplitude / np.sqrt(2 * np.pi * sigma ** 2)) * np.exp(
+            -(points - mean) ** 2 / (2 * sigma ** 2))
+
+    def lorentz(points, a, b, c):
+        """
+        :param p: lorentzian parameters : [full width half max (FWHM), position of maximum, maximum heigth]
+        :param p: position
+        :return:
+        """
+
+        w = a / 2
+
+        x = (b - points) / w
+
+        return (c / (np.pi * w)) / (1 + x ** 2)
+
+    def triple_lorentz(x, a0, a1, a2, b0, b1, b2, c0, c1, c2):
+
+        return lorentz(x, a0, b0, c0) + lorentz(x, a1, b1, c1) + lorentz(x, a2, b2, c2)
+
+    plt.figure()
+
+    start = rfin.size // 2 + 150
+    p = np.array([1.4, 0.3, 1, 0])
+    solp, cov_x = curve_fit(gaussian, rfin[start:], final[start:, zfin[0].size // 2], p,
+                            bounds=([-np.inf, 0, 0, 0], [np.inf, np.inf, np.inf, np.inf]))
+
+    # plt.plot(rfin[start:], gaussian(rfin[start:], solp[0], solp[1], solp[2], solp[3]), '--', color='xkcd:orange', label='Gaussian Fit',
+    #          linewidth=2)
+    #
+    # plt.plot(rfin, final[:, zfin[0].size // 2])
+    # plt.show()
+
+    rpi_ndx = np.argmin(np.abs(zfin[0] - zfin[0][np.argmax(final[rfin.size // 2, :])]))
+
+    plt.plot(rfin, final[:, rpi_ndx], linewidth=2, color='xkcd:blue')#, label='Simulation')
+    # #plt.plot(rfin, final[:, ], linewidth=2, color='xkcd:blue')
+    #
+    # p = np.array([0.1, 0.1, 0.1, -.18, 0, .18, 3, 8, 3])
+    #
+    # solp, cov_x = curve_fit(triple_lorentz, rfin, final[:, rpi_ndx], p, bounds=([0, 0, 0, -np.inf, -np.inf, -np.inf, 0,
+    #             7, 0], [np.inf, np.inf, np.inf, np.inf, np.inf, np.inf, 5, 8, 5]))
+    # print(solp)
+    #
+    # plt.plot(rfin, triple_lorentz(rfin, solp[0], solp[1], solp[2], solp[3], solp[4], solp[5], solp[6], solp[7], solp[8])
+    #          , '--', color='xkcd:orange', label='Triple Lorentzian Fit', linewidth=2)
+    # plt.plot(rfin, lorentz(rfin, solp[0], solp[3], solp[6]))
+    # plt.plot(rfin, lorentz(rfin, solp[1], solp[4], solp[7]))
+    # plt.plot(rfin, lorentz(rfin, solp[2], solp[5], solp[8]))
+    # plt.xlabel('$q_r\ (\AA^{-1})$')
+    # plt.ylabel('Intensity')
+    # plt.legend()
+    # plt.show()
+    # exit()
+    #
+
+    p = np.array([0, 0.3, 4, 1])
+    solp, cov_x = curve_fit(gaussian, rfin, final[:, rpi_ndx], p,
+                            bounds=([-np.inf, 0, 0, 0], [np.inf, np.inf, np.inf, np.inf]))
+
+    #plt.plot(rfin, gaussian(rfin, solp[0], solp[1], solp[2], solp[3]), '--', color='xkcd:orange', label='Gaussian Fit',
+    #         linewidth=2)
+
+    print("Gaussian FWHM = %.3f +/- %.3f A^-1" % (2*np.sqrt(2*np.log(2))*solp[1],
+                                           2 * np.sqrt(2 * np.log(2)) * cov_x[1, 1] ** 0.5))
+    # plt.show()
+    # exit()
+    p = np.array([0.1, 0, 4])
+    solp_lorentz, cov_x = curve_fit(lorentz, rfin, final[:, rpi_ndx], p,
+                            bounds=[[0, -np.inf, 0], [np.inf, np.inf, np.inf]])
+
+    plt.plot(rfin, lorentz(rfin, solp_lorentz[0], solp_lorentz[1], solp_lorentz[2]), '--', label='Lorentzian Fit', linewidth=2, color='xkcd:orange')
+
+    print("Lorentzian FWHM = %.3f +/- %.3f A^-1" % (solp_lorentz[0], cov_x[0, 0] ** 0.5))
+    #print("Lorentzian FWHM = %.2f A^-1" % solp_lorentz[0])
+
+    plt.legend(fontsize=16)
+    plt.xlabel('$q_r\ (\AA^{-1})$', fontsize=18)
+    plt.ylabel('Intensity', fontsize=18)
+    plt.gcf().get_axes()[0].tick_params(labelsize=18)
+    plt.tight_layout()
+    #plt.savefig('/home/bcoscia/PycharmProjects/LLC_Membranes/Ben_Manuscripts/structure_paper/figures/sim_rsection_fit.pdf')
+
+    plt.figure()
+
+    rndx = rfin.size // 2
+    zstart = zfin[0].size // 2
+    plt.plot(zfin[0][zstart:], final[rndx, zstart:], linewidth=2, color='xkcd:blue')
+
+    p = np.array([1.4, 0.1, 7, 0])
+    solp, cov_x = curve_fit(gaussian, zfin[0][zstart:], final[rndx, zstart:], p,
+                            bounds=([-np.inf, 0, 0, 0], [np.inf, np.inf, np.inf, np.inf]))
+
+    fine_grid = np.linspace(zfin[0][zstart], zfin[0][-1], 1000)
+    #plt.plot(fine_grid, gaussian(fine_grid, solp[0], solp[1], solp[2], solp[3]), '--', color='xkcd:orange', label='Gaussian Fit',
+    #         linewidth=2)
+
+    print("Gaussian FWHM = %.3f +/- %.3f A^-1" % (2*np.sqrt(2*np.log(2))*solp[1],
+                                           2 * np.sqrt(2 * np.log(2)) * cov_x[1, 1] ** 0.5))
+
+    p = np.array([0.1, 0, 4])
+    solp_lorentz, cov_x = curve_fit(lorentz, zfin[0][zstart:], final[rndx, zstart:], p,
+                            bounds=[[0, -np.inf, 0], [np.inf, np.inf, np.inf]])
+
+    plt.plot(fine_grid, lorentz(fine_grid, solp_lorentz[0], solp_lorentz[1], solp_lorentz[2]), '--',
+             label='Lorentzian Fit', linewidth=2, color='xkcd:orange')
+
+    print("Lorentzian FWHM = %.3f +/- %.3f A^-1" % (solp_lorentz[0], cov_x[0, 0] ** 0.5))
+
+    plt.legend(fontsize=17)
+    plt.xlabel('$q_z\ (\AA^{-1})$', fontsize=18)
+    plt.ylabel('Intensity', fontsize=18)
+    plt.gcf().get_axes()[0].tick_params(labelsize=18)
+    plt.tight_layout()
+    #plt.savefig('/home/bcoscia/PycharmProjects/LLC_Membranes/Ben_Manuscripts/structure_paper/figures/sim_zsection_fit.pdf')
+    plt.show()
+    exit()
+
+    # AVERAGE INTENSITIES OF MAJOR REFLECTIONS
+    print('Average R-pi intensity: %.2f' % np.amax(final[rfin.size // 2, :]))
+    print('Average R-spots intensity : %.2f' % Rspots(rfin, zfin[0], final.T, theta=30, theta_sigma=(1, 1), bounds=(1.39, 1.49), cmap=cmap))
+
+    np.savez_compressed('z_section.npz', x=zfin[0], y=final[rfin.size // 2, :])
+
+    Rpi = np.amax(final[rfin.size // 2, :])
+    MIN = 0.4
+    # MAX = 7.67
+
+    fig, ax = plt.subplots()
+    lvls = np.linspace(np.amin(final), np.amax(final)*.0001, 200)
+    ax.contourf(rfin, zfin[0], final.T, levels=lvls, cmap='jet',
+                extend='max')
+    plt.xlabel('$q_r (\AA^{-1})$')
+    plt.ylabel('$q_z (\AA^{-1})$')
+    plt.show()
+
+
+    #lvls = np.linspace(np.log10(MIN), np.log10(Rpi), NLEVELS)
+    fig, ax = plt.subplots()
+    # final /= np.amax(final)
+    # lvls = np.linspace(0, 1, 200)
+    from matplotlib.colors import LogNorm
+    plot = plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap=cmap, extend='max')
+    #plot = plt.contourf(rfin, zfin[0], np.log10(final.T), levels=lvls, cmap=cmap, extend='min')
+    cid = fig.canvas.mpl_connect('button_press_event', onclick)
+    #fig.colorbar(plot, format='%.2f')
+    # plt.gca().set_visible(False)  # plot only colorbar
+    plt.xlabel('$q_r\ (\AA^{-1}$)', fontsize=18)
+    plt.ylabel('$q_z\ (\AA^{-1}$)', fontsize=18)
     plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
     plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
     plt.gcf().get_axes()[0].tick_params(labelsize=14)
+    plt.gcf().get_axes()[0].set_aspect('equal')
+    #plt.text(-1.9, 2, "(e)", fontsize=30, color='white', verticalalignment='center', horizontalalignment='center')#, weight='bold')
     plt.tight_layout()
     plt.savefig('rzplot.png')
-    # plt.clf()
-    plt.show()
-
     print('rzplot.png saved')
     exit()
-
     plt.figure()
     y2 = np.linspace(-Rmax, Rmax, RBINS*2 - 1)
     z2 = np.linspace(Z[0], Z[-1], RBINS)
@@ -565,7 +1002,7 @@ def normalize_alkanes(R, Z, Raw_Intensity, inner, outer, angle):
     :return: Intensity values normalized by average intensity inside alkane region
     """
 
-    nbins = 45
+    nbins = 90
     bins = np.linspace(-90, 90, nbins)
 
     bw = 180 / (nbins - 1)
@@ -606,12 +1043,11 @@ def normalize_alkanes(R, Z, Raw_Intensity, inner, outer, angle):
     # plt.xlabel('Angle with respect to $q_z=0$', fontsize=14)
     # plt.ylabel('Normalized integrated intensity', fontsize=14)
     # plt.gcf().get_axes()[0].tick_params(labelsize=14)
-    # plt.ylim(0,2)
+    # # plt.ylim(0,2)
     # plt.xlim(-90, 90)
     # plt.tight_layout()
     # plt.savefig('angular_integration.png')
     # plt.show()
-    # exit()
 
     return avg_intensity
 
@@ -674,11 +1110,39 @@ def to_monoclinic(D, ucell):		#monoclinic for now
     return Dnew
 
 
+def mc_inv(D, ucell):
+
+    a1 = ucell[0]
+    a2 = ucell[1]
+    a3 = ucell[2]
+
+    b1 = (np.cross(a2, a3))/(np.dot(a1, np.cross(a2, a3)))
+    b2 = (np.cross(a3, a1))/(np.dot(a2, np.cross(a3, a1)))
+    b3 = (np.cross(a1, a2))/(np.dot(a3, np.cross(a1, a2)))
+
+    b_inv = np.linalg.inv(np.vstack((b1, b2, b3)))
+    Dnew = np.zeros_like(D)
+
+    X = D[..., 0]
+    Y = D[..., 1]
+    Z = D[..., 2]
+
+    for ix in range(D.shape[0]):
+        Dnew[ix, 0:3] += X[ix]*b_inv[0]
+
+    for iy in range(D.shape[0]):
+        Dnew[iy, 0:3] += Y[iy]*b_inv[1]
+
+    for iz in range(D.shape[0]):
+        Dnew[iz, 0:3] += Z[iz]*b_inv[2]
+
+    return Dnew
+
+
 def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass full 3d data,SF,wavelength in angstroms
 
     PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs)
     exit()
-
     rzscale = kwargs["rzscale"]
 
     if not os.path.exists(path):
@@ -794,10 +1258,14 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
     # exit()
 
     Hcount, XEC, YEC = np.histogram2d(rpts, xyzpts[:, 2], bins=(XBNSRD, Z))
+    # print(Hcount.shape)
+    # print(np.sum(Hcount))
 
-    Hval, XEV, YEV = np.histogram2d(rpts, xyzpts[:, 2], weights=EWDxyz, normed=True, bins=(XBNSRD, Z))
-
-    switch1=True
+    Hval, XEV, YEV = np.histogram2d(rpts, xyzpts[:, 2], weights=EWDxyz, normed=False, bins=(XBNSRD, Z))
+    # print(Hval.shape)
+    # print(np.sum(Hval))
+    # exit()
+    switch1 = True
 
     if switch1:
         Hcount = np.where(Hcount == 0, 1, Hcount)
@@ -858,7 +1326,7 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
 
     total_intensity = np.sum(I[start:end])
     avg_intensity = total_intensity / np.sum(counts[start:end])
-    # avg_intensity = 0.0042
+    #avg_intensity = 14813882253.2
 
     print('Average Intensity in alkane chain region : %s' % avg_intensity)
     #
@@ -905,6 +1373,7 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
     fig, ax = plt.subplots()
     #plt.pcolormesh(XMG[:-1, :], YMG[:-1, :], Hrz.T, vmin=0.0, vmax=rzscale*np.amax(Hrz), cmap='viridis')
     heatmap = ax.pcolormesh(XMG[:-1, :], YMG[:-1, :], Hrz.T, vmin=0.0, vmax=factor, cmap='jet')  # jet matches experiment
+    #heatmap = ax.imshow(Hrz.T, vmin=0.0, vmax=factor, interpolation='bilinear', extent=[-rpts[-1]/2, rpts[-1]/2, -rpts[-1]/2, rpts[-1]/2], cmap='jet')
     # heatmap = ax.pcolormesh(XMG[:-1, :], YMG[:-1, :], Hrz.T, cmap='jet')  # jet matches experiment
 
     # heatmap = ax.pcolormesh(XMG[:-50, :-49], YMG[:-50, :-49], Hrz.T[:-49, :-49]/m, vmin=0.0, vmax=1.0, cmap='jet')  # jet matches experiment

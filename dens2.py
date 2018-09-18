@@ -188,7 +188,6 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
     """
 
     r, L = rescale(r, L)  # keep this inside compute_fft to allow coordinates to be rescaled to whichever numpy view is passed
-    # L[1] *= np.sin(np.pi / 3)
 
     Nspatialgrid = (L/Sres).astype(int)
 
