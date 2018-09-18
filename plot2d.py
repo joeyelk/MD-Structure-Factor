@@ -11,10 +11,13 @@ from scipy.interpolate import LinearNDInterpolator
 from scipy.interpolate import NearestNDInterpolator
 import math
 from tqdm import trange
+import tqdm
 import time
 import matplotlib
+from matplotlib import ticker
 from matplotlib.widgets import Slider, Button, RadioButtons
 from scipy.optimize import curve_fit
+import datetime
 
 
 colorbar = True
@@ -45,6 +48,19 @@ theta = np.pi / 2
 title_fontsize = 9
 
 path = ""
+
+
+def make_flat_plot(D, xr, yr, zr):
+
+    if len(xr) != 1 and len(yr) != 1 and len(zr) != 1:
+        print("error in make_flat_plot!  one of these lengths must be 1")
+        exit()
+
+    for ix in xr:
+        for iy in yr:
+            for iz in zr:
+                r = D[ix, iy, iz, :4]
+                pts.append((r))
 
 
 def pl(title, obj):
@@ -87,7 +103,7 @@ def csplot(X, Y, Z, contours, lab, xlab, ylab,**kwargs):
 
     # ax.set_aspect((np.amax(Y)-np.amin(Y))/(np.amax(X)-np.amin(X)))
     # ax.set_aspect('auto')
-    # cbar = fig.colorbar(cax)
+    cbar = fig.colorbar(cax)
 
     plt.savefig(path+fname+format, dpi=DPI)
     plt.clf()
@@ -153,8 +169,7 @@ def radial_integrate(D, Nbins, outputname):
     H[:1] = 0.0
     H /= np.amax(H)
     plt.plot(E[:-1], H)
-    plt.ylim(0, 0.5)
-    plt.xlim(0.1, 0.5)
+    plt.xlim(0, 5)
     plt.savefig(outputname, dpi=DPI)
 
 
@@ -188,7 +203,7 @@ def Plot_Ewald_Sphere_Correction_old(D, wavelength_angstroms):
     pts = np.asarray(pts)
 
     EWD = ES(pts[:, 2:])
-    EWD = EWD.reshape(D.shape[0],D.shape[1])
+    EWD = EWD.reshape(D.shape[0], D.shape[1])
     plt.contourf(D[:, :, 0, 0], D[:, :, 0, 1], EWD, 200, interpolation=interp)
 
     plt.savefig("EWxy.png",dpi=300)
@@ -315,8 +330,6 @@ def Plot_Ewald_Sphere_Correction(D, wavelength_angstroms, ucell=[], cscale=1, lc
     plt.ylabel(zlab)
     EWDmax_yzlog = np.amax(np.log(EWDyz))
     plt.contourf(D[0, :, :, 1], D[0, :, :, 2], np.log(EWDyz), contours, vmax=lcscale*EWDmax_yzlog, **kwargs)
-    # plt.xlim([-2.5, 2.5])
-    # plt.ylim([-2.5, 2.5])
     plt.savefig(path + fname + "yzlog" + format, dpi=DPI)
     plt.clf()
 
@@ -488,6 +501,8 @@ def angle_average(X, Y, Z, SF, ucell=None):
 
 def Rspots(R, Z, waxs, theta=37, theta_sigma=(7, 5), bounds=(1.256, 1.57), cmap='jet'):
 
+    """ Measure intensity of R-spots in specified region """
+
     spots = np.copy(waxs.T)
     inner = bounds[0]
     outer = bounds[1]
@@ -518,7 +533,39 @@ def Rspots(R, Z, waxs, theta=37, theta_sigma=(7, 5), bounds=(1.256, 1.57), cmap=
     return average_intensity
 
 
-def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
+def gaussian(points, mean, sigma, amplitude, yshift):
+    return yshift + (amplitude / np.sqrt(2 * np.pi * sigma ** 2)) * np.exp(
+        -(points - mean) ** 2 / (2 * sigma ** 2))
+
+
+def lorentz(points, a, b, c):
+    """
+    :param p: lorentzian parameters : [full width half max (FWHM), position of maximum, maximum heigth]
+    :param p: position
+    :return:
+    """
+
+    w = a / 2
+
+    x = (b - points) / w
+
+    return (c / (np.pi * w)) / (1 + x ** 2)
+
+
+def triple_lorentz(x, a0, a1, a2, b0, b1, b2, c0, c1, c2):
+    return lorentz(x, a0, b0, c0) + lorentz(x, a1, b1, c1) + lorentz(x, a2, b2, c2)
+
+
+def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, format=False, factor=3.1, **kwargs):
+
+    """
+    :param D: raw structure factor
+    :param wavelength_angstroms: wavelength of X-ray (angstroms)
+    :param ucell: 3 x 3 unitcell vectors
+    :param factor: maximum colorbar value if using formatting from Coscia et al. manuscript
+    :param format: plot simulated XRD patterns as they appear in Coscai et al. manuscript
+    :return:
+    """
 
     if not os.path.exists(path):
         os.makedirs(path)
@@ -530,20 +577,11 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
     Z = D[0, 0, :, 2]
     SF = D[..., 3]
 
-    # # print(X[len(X)//2], Y[len(Y)//2])
-    # # print(SF[len(X)//2, len(Y)//2, :]/1*10**-9)
-    # np.savez_compressed('50frames.npz', Z=Z, SF=SF[len(X)//2, len(Y)//2, :])
+    ############## Plot z-slice down the middle of the raw structure factor ###################
     # plt.plot(Z, SF[len(X)//2, len(Y)//2, :])
-    # # # start_fit = len(Z) // 2 + 15
-    # # # end_fit = -1 - 15
-    # # # p = np.array([30, 1.4])
-    # # # solp, cov_x = curve_fit(lorentz, Z[start_fit:end_fit], SF[len(X)//2, len(Y)//2, start_fit:end_fit], p)
-    # # #plt.plot(Z[start_fit:end_fit], lorentz(Z[start_fit:end_fit], solp[0], solp[1]))
-    # # #print(np.max(SF[len(X)//2, len(Y)//2,:]))
     # plt.xlabel('q$_z$ ($\AA^{-1}$)')
     # plt.ylabel('Intensity')
     # plt.savefig('z_section.png')
-    # #print('Max intensity / average intensity = %.2f' % (np.amax(SF[len(X)//2, len(Y)//2, :]) / np.mean(SF[len(X)//2,len(Y)//2, :])))
     # plt.show()
     # exit()
 
@@ -565,8 +603,6 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
     b_inv = np.linalg.inv(np.vstack((b1, b2, b3)))
 
     ZBINS = Z.shape[0]  # 400
-    # print(ucell)
-    # exit()
     XR = (X[-1] - X[0])*ucell[0][0]
     YR = (Y[-1] - Y[0])*ucell[1][1]
 
@@ -591,41 +627,34 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
 
         pts = np.vstack((xar.ravel(), yar.ravel(), z.ravel())).T  # reshape for interpolation
 
-        MCpts = np.matmul(pts, b_inv)
-
-        #MCpts = mc_inv(pts,ucell)
+        MCpts = np.matmul(pts, b_inv)  # slower: MCpts = mc_inv(pts,ucell)
 
         oa[ir, :] = np.average(ES(MCpts).reshape(r.shape), axis=1)  # store average values in final array
 
     mn = np.nanmin(oa)
     oa = np.where(np.isnan(oa), mn, oa)
 
-    # rad_avg = np.average(oa)  # ???
-    # oa /= rad_avg  # normalize
+    if not format:
+        rad_avg = np.average(oa)
+        oa /= rad_avg  # normalize
 
     # set up data for contourf plot by making it symmetrical
     final = np.append(oa[::-1, :], oa[1:], axis=0)  # SF
     rfin = np.append(-rarr[::-1], rarr[1:])  # R
     zfin = np.append(z[:, 0, :], z[1:, 0, :], axis=0)  # Z
 
-    # plt.plot(zfin[0], final.T[:, int(rfin.size / 2)])
-    # plt.show()
-    # exit()
     unitlab = '($\AA^{-1}$)'  # Angstroms
 
-    # MIN = np.amin(np.ma.masked_invalid(final))
-    # MAX = np.amax(np.ma.masked_invalid(final))
+    logfinal = np.log(final)
 
-    factor = 4.2
-    alkane_intensity = normalize_alkanes(rfin, zfin[0], final, 1.4, 1.57, 120)  # 1.4, 1.57
-    #alkane_intensity = normalize_alkanes(rfin, zfin[0], final, 0.8, 1.2, 120)  # 1.4, 1.57
-    #alkane_intensity = final[-1, -1]
-    # alkane_intensity = 2.09104479976
+    MIN = np.amin(final)  # MIN = np.amin(np.ma.masked_invalid(final))
+    MAX = np.amax(final)  # MAX = np.amax(np.ma.masked_invalid(final))
 
-    #final /= final[0, 0]  # normalize according to background
-    final /= alkane_intensity
-    MIN = np.amin(final)
-    MAX = np.amax(final)
+    lvls = np.linspace(MIN, MAX, NLEVELS)
+
+    if format:
+        alkane_intensity = normalize_alkanes(rfin, zfin[0], final, 1.4, 1.57, 120)  # 1.4, 1.57
+        final /= alkane_intensity  # normalize according to R-alkanes
 
     # lvls = np.linspace(0, factor, NLEVELS)  # contour levels
     rlimits = [np.argmin(np.abs(rfin + 2.5)), np.argmin(np.abs(rfin - 2.5))]
@@ -636,359 +665,210 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs):
     # MAX = 7.67
 
     #lvls = np.linspace(np.log10(MIN), np.log10(MAX), NLEVELS)
-    lvls = np.linspace(0, factor, NLEVELS)
 
-    restricted = np.zeros_like(final)
-    for i in range(rfin.shape[0]):
-        for j in range(zfin[0].shape[0]):
-            if 0.9 < np.linalg.norm([rfin[i], zfin[0][j]]) < 2:
-                angle = (180/np.pi)*np.arctan(zfin[0][j]/rfin[i])
-                if angle > 60 or angle < -60:
-                    restricted[i, j] = final[i, j]
+    if format:
 
-    # binarea = (rfin[1] - rfin[0]) * (zfin[0][1] - zfin[0][0])
-    # print('Bin area: %s' % binarea)
-    # print(np.amax(restricted))
-    # print(np.count_nonzero(restricted))
-    # print(np.sum(restricted))
+        cmap = 'jet'
+        print(factor)
+        lvls = np.linspace(0, factor, NLEVELS)
+        lvls_log = np.linspace(np.log10(final[-1, -1]), np.log10(np.amax(final)), NLEVELS)
 
-    # plt.imshow(restricted.T, aspect=(rfin.shape[0]/zfin[0].shape[0]), vmax=0.05*np.amax(restricted))
-    # plt.show()
-    # exit()
+        # plot 1D SAXS
+        plt.figure()
+        plt.plot(rfin, final[:, zfin[0].shape[0]//2], linewidth=2)
+        plt.xlabel('$q_r\ (\AA^{-1})$', fontsize=14)
+        plt.ylabel('Intensity', fontsize=14)
+        plt.tight_layout()
 
-    #blot out middle circle
-    # for i in range(rfin.shape[0]):
-    #    for j in range(zfin[0].shape[0]):
-    #        if np.linalg.norm([rfin[i], zfin[0][j]]) < 0.35:
-    #            final[i, j] = 0
+        plt.figure()
 
-    # plot 1D SAXS
-    # plt.figure()
-    # plt.plot(rfin, final[:, zfin[0].shape[0]//2])
-    # # plt.savefig('SAXS_layered.png')
-    # plt.show()
+        heatmap = plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap=cmap, extend='max')
+        cbar = plt.colorbar(heatmap)
+        plt.xlabel('$q_r\ (\AA^{-1}$)', fontsize=18)
+        plt.ylabel('$q_z\ (\AA^{-1}$)', fontsize=18)
+        plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
+        plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
+        plt.gcf().get_axes()[0].tick_params(labelsize=14)
+        plt.gcf().get_axes()[0].set_aspect('equal')
+        plt.tight_layout()
+        plt.savefig('rzplot.png')
+        print('rzplot.png saved')
 
-    plt.figure()
-    #lvls = np.linspace(np.log10(final[-1, -1]), np.log10(np.amax(final)), 1000)
-    cmap = 'jet'
-    cs = plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap=cmap, extend='max')
-    #plt.imshow(np.log10(final.T), vmin=np.log10(final[-1, -1]), vmax=np.log10(np.amax(factor)), aspect=(rfin.shape[0]/zfin[0].shape[0]), interpolation='gaussian', cmap='seismic')
+        ################# Q_R and Q_Z CROSS_SECTIONS OF R_PI WITH GAUSSIAN AND LORENTZIAN FITS ##################
+        ############################### FIT TO QR CROSS-SECTION OF R-PI #########################
 
+        plt.figure()
 
-    #cs = plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap='seismic', extend='max')
+        rpi_ndx = np.argmin(np.abs(zfin[0] - zfin[0][np.argmax(final[rfin.size // 2, :])]))
 
-    #cs = plt.pcolormesh(rfin, zfin[0], final.T, vmax=factor, cmap='seismic')
-    #heatmap = plt.imshow(final.T, cmap='seismic', vmax=factor*alkane_intensity, aspect=(rfin.shape[0]/zfin[0].shape[0]), interpolation='gaussian')
-    # plt.show()
-    # exit()
-    
-    # fig, ax = plt.subplots()
-    # heatmap = ax.pcolormesh(rfin, zfin[0], final.T, cmap='jet', vmax=0.1)  # jet matches experiment
-    #
-    # cbar = plt.colorbar(heatmap)
-    # from matplotlib import ticker
-    # tick_locator = ticker.MaxNLocator(nbins=5)
-    # cbar.locator = tick_locator
-    # cbar.update_ticks()
-    # cbar.ax.set_yticklabels(['0', '0.2', '0.4', '0.6', '0.8', '1'])
-    # plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
-    # plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
-    # plt.gcf().get_axes()[0].set_xlabel('$q_r$' + unitlab, fontsize=14)
-    # plt.gcf().get_axes()[0].set_ylabel('$q_z$' + unitlab, fontsize=14)
-    # plt.gcf().get_axes()[0].set_aspect('equal')
-    # plt.gcf().get_axes()[0].tick_params(labelsize=14)
-    # plt.tight_layout()
-    # plt.savefig('new_rzplot.png')
-    # fig.clf()
+        plt.plot(rfin, final[:, rpi_ndx], linewidth=2, color='xkcd:blue')
 
-    # plt.subplots_adjust(left=0.25, bottom=0.25)
-    # plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
-    # plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
-    # contour_axis = plt.gca()
-    # axcolor = 'lightgoldenrodyellow'
-    # # Place sliders
-    # ax_intensity = plt.axes([0.25, 0.1, 0.65, 0.03], facecolor=axcolor)
-    #
-    # s_intensity = Slider(ax_intensity, 'Max Intensity', 0.1, 100.0, valinit=3.1, color='blue')
-    #
-    # def colorfunc(label):
-    #     global cmap
-    #     cmap = label
-    #     contour_axis.clear()
-    #     contour_axis.contourf(rfin, zfin[0], final.T, levels=lvls, cmap=cmap, extend='max')
-    #     plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
-    #     plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
-    #     plt.draw()
-    #
-    # def update(val):
-    #     factor = s_intensity.val
-    #     lvls = np.linspace(0, factor, NLEVELS)
-    #     contour_axis.clear()
-    #     contour_axis.contourf(rfin, zfin[0], final.T, levels=lvls, cmap=cmap, extend='max')
-    #     plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
-    #     plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
-    #     plt.draw()
-    #
-    # resetax = plt.axes([0.8, 0.025, 0.1, 0.04])
-    # button = Button(resetax, 'Reset', color=axcolor, hovercolor='0.975')
-    #
-    # def reset(event):
-    #     s_intensity.reset()
-    #
-    # button.on_clicked(reset)
-    # rax = plt.axes([0.025, 0.5, 0.15, 0.3], facecolor=axcolor)
-    # radio = RadioButtons(rax, ('jet', 'seismic', 'plasma', 'cool', 'winter', 'RdYlBu', 'Spectral'), active=0)
-    #
-    # s_intensity.on_changed(update)
-    # radio.on_clicked(colorfunc)
+        p = np.array([0, 0.3, 4, 1])
+        solp, cov_x = curve_fit(gaussian, rfin, final[:, rpi_ndx], p,
+                                bounds=([-np.inf, 0, 0, 0], [np.inf, np.inf, np.inf, np.inf]))
 
-    if colorbar:
-        plt.colorbar(format='%.1f')
-        # cs.cmap.set_under('k')
-        # cs.set_clim(0, factor)
+        plt.plot(rfin, gaussian(rfin, solp[0], solp[1], solp[2], solp[3]), '--', color='xkcd:blue', label='Gaussian Fit',
+                 linewidth=2)
+
+        print("Gaussian FWHM = %.3f +/- %.3f A^-1" % (2*np.sqrt(2*np.log(2))*solp[1],
+                                               2 * np.sqrt(2 * np.log(2)) * cov_x[1, 1] ** 0.5))
+
+        p = np.array([0.1, 0, 4])
+        solp_lorentz, cov_x = curve_fit(lorentz, rfin, final[:, rpi_ndx], p,
+                                bounds=[[0, -np.inf, 0], [np.inf, np.inf, np.inf]])
+
+        plt.plot(rfin, lorentz(rfin, solp_lorentz[0], solp_lorentz[1], solp_lorentz[2]), '--', label='Lorentzian Fit',
+                 linewidth=2, color='xkcd:orange')
+
+        print("Lorentzian FWHM = %.3f +/- %.3f A^-1" % (solp_lorentz[0], cov_x[0, 0] ** 0.5))
+
+        plt.legend(fontsize=16)
+        plt.xlabel('$q_r\ (\AA^{-1})$', fontsize=18)
+        plt.ylabel('Intensity', fontsize=18)
+        plt.gcf().get_axes()[0].tick_params(labelsize=18)
+        plt.tight_layout()
+        #plt.savefig('/home/bcoscia/PycharmProjects/LLC_Membranes/Ben_Manuscripts/structure_paper/figures/sim_rsection_fit.pdf')
+
+        ######################## FIT TO QZ CROSS-SECTION OF R-PI #########################
+        plt.figure()
+
+        rndx = rfin.size // 2
+        zstart = zfin[0].size // 2
+        plt.plot(zfin[0][zstart:], final[rndx, zstart:], linewidth=2, color='xkcd:blue')
+
+        p = np.array([1.4, 0.1, 7, 0])
+        solp, cov_x = curve_fit(gaussian, zfin[0][zstart:], final[rndx, zstart:], p,
+                                bounds=([-np.inf, 0, 0, 0], [np.inf, np.inf, np.inf, np.inf]))
+
+        fine_grid = np.linspace(zfin[0][zstart], zfin[0][-1], 1000)
+        plt.plot(fine_grid, gaussian(fine_grid, solp[0], solp[1], solp[2], solp[3]), '--', color='xkcd:blue', label='Gaussian Fit',
+                 linewidth=2)
+
+        print("Gaussian FWHM = %.3f +/- %.3f A^-1" % (2*np.sqrt(2*np.log(2))*solp[1],
+                                               2 * np.sqrt(2 * np.log(2)) * cov_x[1, 1] ** 0.5))
+
+        p = np.array([0.1, 0, 4])
+        solp_lorentz, cov_x = curve_fit(lorentz, zfin[0][zstart:], final[rndx, zstart:], p,
+                                bounds=[[0, -np.inf, 0], [np.inf, np.inf, np.inf]])
+
+        plt.plot(fine_grid, lorentz(fine_grid, solp_lorentz[0], solp_lorentz[1], solp_lorentz[2]), '--',
+                 label='Lorentzian Fit', linewidth=2, color='xkcd:orange')
+
+        print("Lorentzian FWHM = %.3f +/- %.3f A^-1" % (solp_lorentz[0], cov_x[0, 0] ** 0.5))
+
+        plt.legend(fontsize=17)
+        plt.xlabel('$q_z\ (\AA^{-1})$', fontsize=18)
+        plt.ylabel('Intensity', fontsize=18)
+        plt.gcf().get_axes()[0].tick_params(labelsize=18)
+        plt.tight_layout()
+        #plt.savefig('/home/bcoscia/PycharmProjects/LLC_Membranes/Ben_Manuscripts/structure_paper/figures/sim_zsection_fit.pdf')
+
+        print('Average R-pi intensity: %.2f' % np.amax(final[rfin.size // 2, :]))
+        #print('Average R-spots intensity : %.2f' % Rspots(rfin, zfin[0], final.T, theta=30, theta_sigma=(1, 1),
+                                                          #bounds=(1.39, 1.49), cmap=cmap))
+
     else:
-        plt.gcf().get_axes()[0].set_aspect(0.9)
 
-    # from matplotlib import ticker
-    # tick_locator = ticker.MaxNLocator(nbins=5)
-    # cbar.locator = tick_locator
-    # cbar.update_ticks()
-    # cbar.ax.set_yticklabels(['%1.1f' % i for i in np.linspace(0, 2.5*alkane_intensity, 5)])
+        plt.figure()
+        plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap='jet')
+        plt.colorbar()
 
-    # plt.title('S(r,z)', fontsize=14)
-    # plt.clf()
-    # plt.show()
-
-    # plt.figure()
-    # plt.plot(zfin[0], final[rfin.size // 2, :])
-    # print(zfin[0])
-    # plt.show()
-
-    def onclick(event):
-
-        print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
-              ('double' if event.dblclick else 'single', event.button,
-               event.x, event.y, event.xdata, event.ydata))
-
-        # find which index in waxs
-        xd = np.argmin(np.abs(rfin - event.xdata))
-        yd = np.argmin(np.abs(zfin[0] - event.ydata))
-        print(final[xd, yd])
-        # # print(rfin[xd], event.xdata)
-        # # print[yd], event.ydata)
-        # print(final[yd, xd])  # it seems that the transpose is plotted
-
-    # Get intensity of various reflections
-    # plot z-slices
-    # plt.figure()
-    # for i in range(-10, 10):
-    #     plt.plot(zfin[0], final.T[:, final.shape[0]//2 + i])
-
-    # plt.figure()
-    # plt.plot(zfin[0], final.T[:, final.shape[0]//2])
-    # plt.show()
-    # exit()
-
-    # plot maximum intensity of each z-slice
-    # plt.plot(np.linspace(-100, 99, 200), np.amax(waxs[:, waxs.shape[0]//2 - 100:waxs.shape[0]//2 + 100], axis=0))
-    # plt.plot(np.linspace(-10, 9, 20), np.amax(waxs[R_double_bottom:R_double_top,
-    #                                           waxs.shape[0]//2 - 10:waxs.shape[0]//2 + 10], axis=0))
-    # plt.show()
-
-    # Q_R and Q_Z CROSS_SECTIONS OF R_PI WITH GAUSSIAN AND LORENTZIAN FITS
-    def gaussian(points, mean, sigma, amplitude, yshift):
-
-        return yshift + (amplitude / np.sqrt(2 * np.pi * sigma ** 2)) * np.exp(
-            -(points - mean) ** 2 / (2 * sigma ** 2))
-
-    def lorentz(points, a, b, c):
-        """
-        :param p: lorentzian parameters : [full width half max (FWHM), position of maximum, maximum heigth]
-        :param p: position
-        :return:
-        """
-
-        w = a / 2
-
-        x = (b - points) / w
-
-        return (c / (np.pi * w)) / (1 + x ** 2)
-
-    def triple_lorentz(x, a0, a1, a2, b0, b1, b2, c0, c1, c2):
-
-        return lorentz(x, a0, b0, c0) + lorentz(x, a1, b1, c1) + lorentz(x, a2, b2, c2)
-
-    plt.figure()
-
-    start = rfin.size // 2 + 150
-    p = np.array([1.4, 0.3, 1, 0])
-    solp, cov_x = curve_fit(gaussian, rfin[start:], final[start:, zfin[0].size // 2], p,
-                            bounds=([-np.inf, 0, 0, 0], [np.inf, np.inf, np.inf, np.inf]))
-
-    # plt.plot(rfin[start:], gaussian(rfin[start:], solp[0], solp[1], solp[2], solp[3]), '--', color='xkcd:orange', label='Gaussian Fit',
-    #          linewidth=2)
-    #
-    # plt.plot(rfin, final[:, zfin[0].size // 2])
-    # plt.show()
-
-    rpi_ndx = np.argmin(np.abs(zfin[0] - zfin[0][np.argmax(final[rfin.size // 2, :])]))
-
-    plt.plot(rfin, final[:, rpi_ndx], linewidth=2, color='xkcd:blue')#, label='Simulation')
-    # #plt.plot(rfin, final[:, ], linewidth=2, color='xkcd:blue')
-    #
-    # p = np.array([0.1, 0.1, 0.1, -.18, 0, .18, 3, 8, 3])
-    #
-    # solp, cov_x = curve_fit(triple_lorentz, rfin, final[:, rpi_ndx], p, bounds=([0, 0, 0, -np.inf, -np.inf, -np.inf, 0,
-    #             7, 0], [np.inf, np.inf, np.inf, np.inf, np.inf, np.inf, 5, 8, 5]))
-    # print(solp)
-    #
-    # plt.plot(rfin, triple_lorentz(rfin, solp[0], solp[1], solp[2], solp[3], solp[4], solp[5], solp[6], solp[7], solp[8])
-    #          , '--', color='xkcd:orange', label='Triple Lorentzian Fit', linewidth=2)
-    # plt.plot(rfin, lorentz(rfin, solp[0], solp[3], solp[6]))
-    # plt.plot(rfin, lorentz(rfin, solp[1], solp[4], solp[7]))
-    # plt.plot(rfin, lorentz(rfin, solp[2], solp[5], solp[8]))
-    # plt.xlabel('$q_r\ (\AA^{-1})$')
-    # plt.ylabel('Intensity')
-    # plt.legend()
-    # plt.show()
-    # exit()
-    #
-
-    p = np.array([0, 0.3, 4, 1])
-    solp, cov_x = curve_fit(gaussian, rfin, final[:, rpi_ndx], p,
-                            bounds=([-np.inf, 0, 0, 0], [np.inf, np.inf, np.inf, np.inf]))
-
-    #plt.plot(rfin, gaussian(rfin, solp[0], solp[1], solp[2], solp[3]), '--', color='xkcd:orange', label='Gaussian Fit',
-    #         linewidth=2)
-
-    print("Gaussian FWHM = %.3f +/- %.3f A^-1" % (2*np.sqrt(2*np.log(2))*solp[1],
-                                           2 * np.sqrt(2 * np.log(2)) * cov_x[1, 1] ** 0.5))
-    # plt.show()
-    # exit()
-    p = np.array([0.1, 0, 4])
-    solp_lorentz, cov_x = curve_fit(lorentz, rfin, final[:, rpi_ndx], p,
-                            bounds=[[0, -np.inf, 0], [np.inf, np.inf, np.inf]])
-
-    plt.plot(rfin, lorentz(rfin, solp_lorentz[0], solp_lorentz[1], solp_lorentz[2]), '--', label='Lorentzian Fit', linewidth=2, color='xkcd:orange')
-
-    print("Lorentzian FWHM = %.3f +/- %.3f A^-1" % (solp_lorentz[0], cov_x[0, 0] ** 0.5))
-    #print("Lorentzian FWHM = %.2f A^-1" % solp_lorentz[0])
-
-    plt.legend(fontsize=16)
-    plt.xlabel('$q_r\ (\AA^{-1})$', fontsize=18)
-    plt.ylabel('Intensity', fontsize=18)
-    plt.gcf().get_axes()[0].tick_params(labelsize=18)
-    plt.tight_layout()
-    #plt.savefig('/home/bcoscia/PycharmProjects/LLC_Membranes/Ben_Manuscripts/structure_paper/figures/sim_rsection_fit.pdf')
-
-    plt.figure()
-
-    rndx = rfin.size // 2
-    zstart = zfin[0].size // 2
-    plt.plot(zfin[0][zstart:], final[rndx, zstart:], linewidth=2, color='xkcd:blue')
-
-    p = np.array([1.4, 0.1, 7, 0])
-    solp, cov_x = curve_fit(gaussian, zfin[0][zstart:], final[rndx, zstart:], p,
-                            bounds=([-np.inf, 0, 0, 0], [np.inf, np.inf, np.inf, np.inf]))
-
-    fine_grid = np.linspace(zfin[0][zstart], zfin[0][-1], 1000)
-    #plt.plot(fine_grid, gaussian(fine_grid, solp[0], solp[1], solp[2], solp[3]), '--', color='xkcd:orange', label='Gaussian Fit',
-    #         linewidth=2)
-
-    print("Gaussian FWHM = %.3f +/- %.3f A^-1" % (2*np.sqrt(2*np.log(2))*solp[1],
-                                           2 * np.sqrt(2 * np.log(2)) * cov_x[1, 1] ** 0.5))
-
-    p = np.array([0.1, 0, 4])
-    solp_lorentz, cov_x = curve_fit(lorentz, zfin[0][zstart:], final[rndx, zstart:], p,
-                            bounds=[[0, -np.inf, 0], [np.inf, np.inf, np.inf]])
-
-    plt.plot(fine_grid, lorentz(fine_grid, solp_lorentz[0], solp_lorentz[1], solp_lorentz[2]), '--',
-             label='Lorentzian Fit', linewidth=2, color='xkcd:orange')
-
-    print("Lorentzian FWHM = %.3f +/- %.3f A^-1" % (solp_lorentz[0], cov_x[0, 0] ** 0.5))
-
-    plt.legend(fontsize=17)
-    plt.xlabel('$q_z\ (\AA^{-1})$', fontsize=18)
-    plt.ylabel('Intensity', fontsize=18)
-    plt.gcf().get_axes()[0].tick_params(labelsize=18)
-    plt.tight_layout()
-    #plt.savefig('/home/bcoscia/PycharmProjects/LLC_Membranes/Ben_Manuscripts/structure_paper/figures/sim_zsection_fit.pdf')
-    plt.show()
-    exit()
-
-    # AVERAGE INTENSITIES OF MAJOR REFLECTIONS
-    print('Average R-pi intensity: %.2f' % np.amax(final[rfin.size // 2, :]))
-    print('Average R-spots intensity : %.2f' % Rspots(rfin, zfin[0], final.T, theta=30, theta_sigma=(1, 1), bounds=(1.39, 1.49), cmap=cmap))
-
-    np.savez_compressed('z_section.npz', x=zfin[0], y=final[rfin.size // 2, :])
-
-    Rpi = np.amax(final[rfin.size // 2, :])
-    MIN = 0.4
-    # MAX = 7.67
-
-    fig, ax = plt.subplots()
-    lvls = np.linspace(np.amin(final), np.amax(final)*.0001, 200)
-    ax.contourf(rfin, zfin[0], final.T, levels=lvls, cmap='jet',
-                extend='max')
-    plt.xlabel('$q_r (\AA^{-1})$')
-    plt.ylabel('$q_z (\AA^{-1})$')
-    plt.show()
-
-
-    #lvls = np.linspace(np.log10(MIN), np.log10(Rpi), NLEVELS)
-    fig, ax = plt.subplots()
-    # final /= np.amax(final)
-    # lvls = np.linspace(0, 1, 200)
-    from matplotlib.colors import LogNorm
-    plot = plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap=cmap, extend='max')
-    #plot = plt.contourf(rfin, zfin[0], np.log10(final.T), levels=lvls, cmap=cmap, extend='min')
-    cid = fig.canvas.mpl_connect('button_press_event', onclick)
-    #fig.colorbar(plot, format='%.2f')
-    # plt.gca().set_visible(False)  # plot only colorbar
-    plt.xlabel('$q_r\ (\AA^{-1}$)', fontsize=18)
-    plt.ylabel('$q_z\ (\AA^{-1}$)', fontsize=18)
-    plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
-    plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
-    plt.gcf().get_axes()[0].tick_params(labelsize=14)
-    plt.gcf().get_axes()[0].set_aspect('equal')
-    #plt.text(-1.9, 2, "(e)", fontsize=30, color='white', verticalalignment='center', horizontalalignment='center')#, weight='bold')
-    plt.tight_layout()
-    plt.savefig('rzplot.png')
-    print('rzplot.png saved')
-    exit()
-    plt.figure()
-    y2 = np.linspace(-Rmax, Rmax, RBINS*2 - 1)
-    z2 = np.linspace(Z[0], Z[-1], RBINS)
-
-    xg2, yg2, zg2 = np.meshgrid(np.asarray(0), y2, z2)
-    pts = np.vstack((xg2.ravel(), yg2.ravel(), zg2.ravel())).T
-    out2 = ES(pts).reshape(yg2.shape[0], yg2.shape[2])
-
-    o2n = out2[:, :] / rad_avg
-
-    cs = plt.contourf(yg2[:, 0, :], zg2[:, 0, :], o2n, levels=lvls*3, cmap='jet', extend='max')
-    cs.cmap.set_under('k')
-
-    plt.xlabel('y ' + unitlab)
-    plt.ylabel('z ' + unitlab)
-    plt.title('S(y,z)|$_{x=0}$')
-
-    plt.colorbar()
-    plt.savefig('new_yzplot.png')
-    plt.show()
-    plt.clf()
-
-    if False:
-        dif = o2n - final
-        lvls2 = np.linspace(-0.4, 0.4, 100)
-
-        plt.contourf(xg2[0, :, :], zg2[0, :, :], dif, levels=lvls2, cmap='seismic')
-        plt.xlabel('x,r ' + unitlab)
+        plt.title('S(r,z)')
+        plt.xlabel('r ' + unitlab)
         plt.ylabel('z ' + unitlab)
-        plt.title('S(r,z)-S(x,z)|$_{y=0}$')
+
+        plt.savefig('new_rzplot.png')
+
+        plt.figure()
+
+        cs = plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap='jet', extend='both')
+        cs.cmap.set_under('k')
+        cs.set_clim(MIN, 0.1 * MAX)
+        plt.title('S(r,z)')
+        plt.xlabel('r ' + unitlab)
+        plt.ylabel('z ' + unitlab)
+        plt.colorbar()
+        plt.savefig('cs.png')
+
+        plt.figure()
+
+        plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap='jet')
+        plt.colorbar()
+
+        plt.title('S(r,z)')
+        plt.xlabel('r ' + unitlab)
+        plt.ylabel('z ' + unitlab)
+        plt.savefig('new_rzplot2.png')
+
+        plt.figure()
+        lglvls = np.linspace(np.amin(logfinal), np.amax(logfinal), NLEVELS)
+
+        plt.contourf(rfin, zfin[0], logfinal.T, levels=lglvls, cmap='jet')
+        plt.colorbar()
+
+        plt.title('ln(S(r,z))')
+        plt.xlabel('r ' + unitlab)
+        plt.ylabel('z ' + unitlab)
+        plt.savefig('new_log_rzplot.png')
+
+        plt.figure()
+
+        x2 = np.linspace(-Rmax, Rmax, RBINS * 2 - 1)
+        z2 = np.linspace(Z[0], Z[-1], RBINS)
+
+        xg2, yg2, zg2 = np.meshgrid(x2, np.asarray(0), z2)
+        pts = np.vstack((xg2.ravel(), yg2.ravel(), zg2.ravel())).T
+        out2 = ES(pts).reshape(xg2.shape[1], xg2.shape[2])
+
+        o2n = out2[:, :] / rad_avg
+
+        plt.contourf(xg2[0, :, :], zg2[0, :, :], o2n, levels=lvls, cmap='jet')
+
+        plt.xlabel('x ' + unitlab)
+        plt.ylabel('z ' + unitlab)
+        plt.title('S(x,z)|$_{y=0}$')
 
         plt.colorbar()
-        plt.savefig('difference.png')
+        plt.savefig('new_xzplot.png')
+
+        plt.figure()
+
+        x2 = np.linspace(-Rmax, Rmax, RBINS * 2 - 1)
+        y2 = np.linspace(-Rmax, Rmax, RBINS * 2 - 1)
+
+        xg2, yg2, zg2 = np.meshgrid(x2, y2, np.asarray(0))
+        pts = np.vstack((xg2.ravel(), yg2.ravel(), zg2.ravel())).T
+        out2 = ES(pts).reshape(xg2.shape[0], xg2.shape[1])
+
+        o2n = out2[:, :] / np.average(out2)
+
+        lvlsxy = np.linspace(np.amin(o2n), np.amax(o2n), NLEVELS)  # contour levels
+
+        plt.contourf(xg2[:, :, 0], yg2[:, :, 0], o2n, levels=lvlsxy, cmap='jet')
+
+        plt.xlabel('x ' + unitlab)
+        plt.ylabel('y ' + unitlab)
+        plt.title('S(x,y)')  # |$_{y=0}$')
+
+        plt.colorbar()
+        plt.savefig('new_xyplot.png')
+
+        if False:
+
+            plt.figure()
+
+            dif = o2n - final
+            lvls2 = np.linspace(-0.4, 0.4, 100)
+
+            plt.contourf(xg2[0, :, :], zg2[0, :, :], dif, levels=lvls2, cmap='seismic')
+            plt.xlabel('x,r ' + unitlab)
+            plt.ylabel('z ' + unitlab)
+            plt.title('S(r,z)-S(x,z)|$_{y=0}$')
+
+            plt.colorbar()
+            plt.savefig('difference.png')
+
+    plt.show()
 
 
 def normalize_alkanes(R, Z, Raw_Intensity, inner, outer, angle):
@@ -1034,20 +914,6 @@ def normalize_alkanes(R, Z, Raw_Intensity, inner, outer, angle):
     avg_intensity = total_intensity / np.sum(counts[start:end])
 
     print('Average Intensity in alkane chain region : %s' % avg_intensity)
-
-    # I /= (counts*np.amax(intensity))
-    # I /= (counts*avg_intensity)
-    #
-    # plt.bar(bins, I, bw, color='#1f77b4')
-    #
-    # plt.xlabel('Angle with respect to $q_z=0$', fontsize=14)
-    # plt.ylabel('Normalized integrated intensity', fontsize=14)
-    # plt.gcf().get_axes()[0].tick_params(labelsize=14)
-    # # plt.ylim(0,2)
-    # plt.xlim(-90, 90)
-    # plt.tight_layout()
-    # plt.savefig('angular_integration.png')
-    # plt.show()
 
     return avg_intensity
 
@@ -1139,11 +1005,10 @@ def mc_inv(D, ucell):
     return Dnew
 
 
-def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass full 3d data,SF,wavelength in angstroms
+def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, factor=3.1, format=True, **kwargs):  # pass full 3d data,SF,wavelength in angstroms
 
-    PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs)
+    PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs, factor=factor, format=format)
     exit()
-    rzscale = kwargs["rzscale"]
 
     if not os.path.exists(path):
         os.makedirs(path)
@@ -1152,12 +1017,16 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
     Y = D[0, :, 0, 1].copy()
     Z = D[0, 0, :, 2].copy()
 
+    NBINSZ = 1 * D[0, 0, :, 2].size
+    ZBNS = np.linspace(Z[0], Z[-1], NBINSZ)
+
     if NBINSRAD > 0:
-        XBNSRD = np.linspace(-NBINSRAD, NBINSRAD, num = NBINSRAD*2)
+        XBNSRD = np.linspace(-NBINSRAD, NBINSRAD, num=NBINSRAD*2)
         XBNSRD = np.sqrt(np.abs(XBNSRD))*np.sign(XBNSRD)
         XBNSRD *= (X[-1]/XBNSRD[-1])
     else:
-        XBNSRD=X
+        XBNSRD = X
+        print("setting XBNSRD=", X)
 
     dx1 = X[1 + int(X.shape[0]/2)] - X[int(X.shape[0]/2)]
 
@@ -1182,22 +1051,21 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
 
     D[..., :3] = Dnew[..., :3]
 
-    K_ES = 2.0*math.pi/wavelength_angstroms  #calculate k for incident xrays in inverse angstroms
+    K_ES = 2.0*math.pi/wavelength_angstroms  # calculate k for incident xrays in inverse angstroms
 
-    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.RegularGridInterpolator.html
-    # scipy.interpolate.RegularGridInterpolator
+    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.RegularGridInterpolator.html#scipy.interpolate.RegularGridInterpolator
     # Notes
-    # Contrary to LinearNDInterpolator and NearestNDInterpolator, RegularGridInterpolator class avoids expensive
-    # triangulation of the input data by taking advantage of the regular grid structure.
+    # Contrary to LinearNDInterpolator and NearestNDInterpolator, RegularGridInterpolator class avoids expensive triangulation of the input data by taking advantage of the regular grid structure.
     # this is why this style of interpolation is so slow
 
-    XGD = D[:, :, :, 0]  #X spatial grid view
+    XGD = D[:, :, :, 0]  # X spatial grid view
     YGD = D[:, :, :, 1]
     ZGD = D[:, :, :, 2]
     VGD = D[:, :, :, 3]
 
     DC = D[:, :, :, 0:3]
 
+    DR = DC.reshape(DC.size/3, 3)
 
     # check if fast interpolation can be used
     lbuf = True
@@ -1207,64 +1075,70 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
                 lbuf = False
 
     print("Interpolating grid...")
-    if not load:
 
-        if ucell[0, 0] == ucell[1, 1] and ucell[0, 0] == ucell[2, 2] and lbuf:
+    if ucell[0, 0] == ucell[1, 1] and ucell[0, 0] == ucell[2, 2] and lbuf:
 
-            ES = RegularGridInterpolator((X, Y, Z), SF, bounds_error=False)
+        print("using fast interpolation for orthorhombic cell")
+        ES = RegularGridInterpolator((X, Y, Z), SF, bounds_error=False)
 
+    else:
+
+        print("Interpolating non-orthorhombic cell")
+        dtime = 480.0 * XGD.size / (98 * 98 * 99)  # empirical time estimate
+
+        print("interpolation time estimate: ", round(dtime / 60, 1), " minutes, finishing around ", (
+                    datetime.datetime.now() + datetime.timedelta(seconds=dtime)).strftime('%I:%M %p'))
+
+        start = time.time()
+        coords = list(zip(XGD.ravel(), YGD.ravel(), ZGD.ravel()))
+
+        if False:
+            ES = LinearNDInterpolator(coords, VGD.ravel())
         else:
+            ES = NearestNDInterpolator(coords, VGD.ravel())
+        end = time.time()
 
-            # ES = np.load("ES.npy")
-            dtime = 480.0*XGD.size / (98 * 98 * 99)  # empirical time estimate
+        print("interpolation finished, taking %4.2f seconds" % (end-start))
 
-            start = time.time()
-            coords = list(zip(XGD.ravel(), YGD.ravel(), ZGD.ravel()))
-
-            if False:
-                ES = LinearNDInterpolator(coords, VGD.ravel())
-            else:
-                ES = NearestNDInterpolator(coords, VGD.ravel())
-            end = time.time()
-
-            print("interpolation finished, taking %4.2f seconds" % (end-start))
-
-    xyzpts = []
+    xyzpts = np.asarray([])
     print("setting up points for radial integration")
+    Scale=1
 
-    # if True:
-    #     for ix in trange(D.shape[0]):
-    #         for iy in range(D.shape[1]):
-    #             for iz in range(D.shape[2]):
-    #                 # xyzpts.append((X[ix],Y[iy],Z[iz]))
-    #                 xyzpts.append((D[ix, iy, iz, 0], D[ix, iy, iz, 1], D[ix, iy, iz, 2]))
-    # else:
-    #     pass
-    #
-    # xyzpts = np.asarray(xyzpts)
+    if False:
+        for ix in trange(D.shape[0]):
+            for iy in range(D.shape[1]):
+                for iz in range(D.shape[2]):
+                    xyzpts.append((D[ix, iy, iz, 0], D[ix, iy, iz, 1], D[ix, iy, iz, 2]))
+    else:
+        XPTS = np.linspace(D[0, 0, 0, 0], D[-1, 0, 0, 0], Scale * D.shape[0], dtype=np.float16)
+        YPTS = np.linspace(D[0, 0, 0, 1], D[0, -1, 0, 1], Scale * D.shape[1], dtype=np.float16)
+        ZPTS = np.linspace(D[0, 0, 0, 2], D[0, 0, -1, 2], Scale * D.shape[2], dtype=np.float16)
+        print("mesh")
+        xyzpts = np.meshgrid(XPTS, YPTS, ZPTS)
+        print("stack")
+        xyzpts = np.stack(xyzpts, -1).reshape(-1, 3)
+        print("done")
 
     xyzpts = np.reshape(D[:, :, :, :3], (D.shape[0]*D.shape[1]*D.shape[2], 3))  # 5000x faster than above loop
 
-    if not load:
-        EWDxyz = ES(xyzpts)
-        np.save("EWDxyz", EWDxyz)
-    else:
-        EWDxyz = np.load("EWDxyz.npy")
+    NSP = 20
+    NSP = np.minimum(NSP, xyzpts.shape[0])  # split into at most 20 chunks before processing to limit memory usage
+
+    xyzpieces = np.array_split(xyzpts, NSP)
+    EWDxyz = np.asarray([])
+    print("interpolating")
+    for i in tqdm.tqdm(xyzpieces):
+        buf = ES(i)
+        EWDxyz = np.append(EWDxyz, buf, axis=0)
+
+    print("EWD done")
 
     rpts = np.sqrt(xyzpts[:, 0]**2.0 + xyzpts[:, 1]**2.0)
 
-    # plt.hist(rpts, bins=80)
-    # plt.show()
-    # exit()
+    Hcount, XEC, YEC = np.histogram2d(rpts, xyzpts[:, 2], bins=(XBNSRD, ZBNS))
 
-    Hcount, XEC, YEC = np.histogram2d(rpts, xyzpts[:, 2], bins=(XBNSRD, Z))
-    # print(Hcount.shape)
-    # print(np.sum(Hcount))
+    Hval, XEV, YEV = np.histogram2d(rpts, xyzpts[:, 2], weights=EWDxyz, normed=False, bins=(XBNSRD, ZBNS))
 
-    Hval, XEV, YEV = np.histogram2d(rpts, xyzpts[:, 2], weights=EWDxyz, normed=False, bins=(XBNSRD, Z))
-    # print(Hval.shape)
-    # print(np.sum(Hval))
-    # exit()
     switch1 = True
 
     if switch1:
@@ -1275,283 +1149,48 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
     if not switch1:
         Hrz = np.ma.masked_invalid(Hrz)
 
-    for ir in range(old_div(Hrz.shape[0], 2)):
-        Hrz[-ir + old_div(Hrz.shape[0], 2), :] = Hrz[ir + 1 + old_div(Hrz.shape[0], 2), :]
+    S1 = np.sum(Hrz)
+    S3 = np.sum(Hrz[Hrz.shape[0]/2, :])
 
-    np.save("Hrz", Hrz)
+    Condition1 = False # Need to figure this out-when should this be true?
 
-    # with open('Intensities.txt', 'w') as f:
-    #
-    #     for i in range(np.shape(Hrz)[0]):
-    #         line = ''
-    #         for j in range(np.shape(Hrz)[1]):
-    #             line += '{:3.2f}'.format(Hrz[i, j])
-    #
-    #         f.write(line + '\n')
+    if Condition1:
+        for ir in range(1, Hrz.shape[0] / 2 - 1):
+            Hrz[-ir + Hrz.shape[0] / 2, :] = Hrz[ir + Hrz.shape[0] / 2,
+                                             :]  # this needs to be tested for both even and odd numbers of bins
+    else:
+        for ir in range(1, Hrz.shape[0] / 2 - 1):
+            Hrz[-ir + 2 + Hrz.shape[0] / 2, :] = Hrz[ir + Hrz.shape[0] / 2,
+                                                 :]  # this needs to be tested for both even and odd numbers of bins
+
+
+    S2 = np.sum(Hrz)
 
     XMG, YMG = np.meshgrid(XEV, YEV)
-
-    ###################################################################################################################
-    # # Plot angular integration of 2D WAXS data bounded by a circle defined by radii 'lower' and 'upper'
-
-    lower = 1.4  #
-    upper = 1.57
-
-    nbins = 45
-    bins = np.linspace(-90, 90, nbins)
-
-    bw = 180 / (nbins - 1)
-
-    angles = []
-    intensity = []
-    for i in range(XMG.shape[0]):
-        for j in range(XMG.shape[1]):
-            if lower < np.linalg.norm([XMG[i, j], YMG[i, j]]) < upper:
-                angles.append((180/np.pi)*np.arctan(YMG[i, j]/XMG[i, j]))
-                intensity.append(Hrz[j, i])
-
-    inds = np.digitize(angles, bins)
-    I = np.zeros([nbins])
-    counts = np.zeros([nbins])
-    for i in range(len(inds)):
-        I[inds[i]] += intensity[i]
-        counts[inds[i]] += 1
-
-    #Get average intensity in ring excluding 60 degree slice around top and bottom #######
-
-    bin_range = 180 / nbins  # degrees which a single bin covers
-
-    start = int(30 / bin_range)  # start at the bin which covers -60 degrees and above
-    end = nbins - start  # because of symmetry
-
-    total_intensity = np.sum(I[start:end])
-    avg_intensity = total_intensity / np.sum(counts[start:end])
-    #avg_intensity = 14813882253.2
-
-    print('Average Intensity in alkane chain region : %s' % avg_intensity)
-    #
-    # I /= (counts*np.amax(intensity))
-    #
-    # plt.bar(bins, I, bw, color='#1f77b4')
-    #
-    # plt.xlabel('Angle with respect to $q_z=0$', fontsize=14)
-    # plt.ylabel('Normalized integrated intensity', fontsize=14)
-    # plt.gcf().get_axes()[0].tick_params(labelsize=14)
-    #
-    # plt.tight_layout()
-    # plt.savefig('angular_integration.png')
-    # plt.show()
-    ###################################################################################################################
-
-    # m = np.amax(Hrz[:, :-49])  # 49 for full sized thing a majig, 23 for half size
-    # # exit()
-    # # m = 0.00832122075357  # offset
-    # # m = 0.00935587721282  # layered
-    # m = 0.0036316001  # alkanes (average of PD and sandwiched average intensity in alkane region)
-    # # m *= factor
-    factor = 2.5  # this needs to match the experimental factor (see WAXS.py)
-    m = avg_intensity*factor
-    Hrz /= avg_intensity
-    plt.plot(Hrz)
-    restricted = np.zeros_like(Hrz)
-    for i in range(Hrz.shape[0]):
-        for j in range(Hrz.shape[1]):
-            if 0.9 < np.linalg.norm([XEV[i], YEV[j]]) < 2:
-                angle = (180/np.pi)*np.arctan(YEV[j]/XEV[i])
-                if angle > 60 or angle < -60:
-                    restricted[i, j] = Hrz[i, j]
-
-    # binarea = (rfin[1] - rfin[0]) * (zfin[0][1] - zfin[0][0])
-    # print('Bin area: %s' % binarea)
-    print(np.amax(restricted))
-    print(np.count_nonzero(restricted))
-    print(np.sum(restricted))
-
-    # plt.imshow(restricted.T, aspect=Hrz.shape[0]/Hrz.shape[1])
-    # plt.show()
-
-    fig, ax = plt.subplots()
-    #plt.pcolormesh(XMG[:-1, :], YMG[:-1, :], Hrz.T, vmin=0.0, vmax=rzscale*np.amax(Hrz), cmap='viridis')
-    heatmap = ax.pcolormesh(XMG[:-1, :], YMG[:-1, :], Hrz.T, vmin=0.0, vmax=factor, cmap='jet')  # jet matches experiment
-    #heatmap = ax.imshow(Hrz.T, vmin=0.0, vmax=factor, interpolation='bilinear', extent=[-rpts[-1]/2, rpts[-1]/2, -rpts[-1]/2, rpts[-1]/2], cmap='jet')
-    # heatmap = ax.pcolormesh(XMG[:-1, :], YMG[:-1, :], Hrz.T, cmap='jet')  # jet matches experiment
-
-    # heatmap = ax.pcolormesh(XMG[:-50, :-49], YMG[:-50, :-49], Hrz.T[:-49, :-49]/m, vmin=0.0, vmax=1.0, cmap='jet')  # jet matches experiment
-
-    ## Use this block (and comment out previous line to plot raw waxs data ##
-    # waxs = np.load('/home/bcoscia/PycharmProjects/MD-Structure-Factor/waxs.npy')
-    # qmax = 2.5
-    # heatmap = ax.imshow(waxs, cmap='jet', extent=[-qmax, qmax, -qmax, qmax])
-    ## end ##
-
-    cbar = plt.colorbar(heatmap)
-    # from matplotlib import ticker
-    # tick_locator = ticker.MaxNLocator(nbins=5)
-    # cbar.locator = tick_locator
-    # cbar.update_ticks()
-    # cbar.ax.set_yticklabels(['0', '0.2', '0.4', '0.6', '0.8', '1'])
-
-    # x = XMG[0, :]
-    # y = YMG[:, 0]
-    #
-    # bins = 40
-    # angles = np.zeros([bins])
-    # norm = np.zeros([bins])
-    #
-    # area_to_integrate = np.zeros([x.shape[0], y.shape[0]])
-    # r_inner = 1.1
-    # r_outer = 1.7
-    # for i in range(x.shape[0]):
-    #     for k in range(y.shape[0]):
-    #         if r_inner <= np.linalg.norm([x[i], y[k]]) <= r_outer:
-    #             area_to_integrate[i, k] = Hrz[i, k]
-    #             angle = np.arctan(y[k]/x[i]) * (180/np.pi)
-    #
-    #             bin = int((bins/2) + ((angle/90)*(bins/2)))
-    #             if bin == bins:
-    #                 bin -= 1
-    #
-    #             angles[bin] += Hrz[i, k]
-    #             norm[bin] += 1
-    #
-    # avg = angles / norm  # normalize intensities so it is on a per count basis
-    # avg /= np.sum(np.ma.masked_invalid(avg))
-    #
-    # angles = np.linspace(-90, 90, bins + 1)  # We will only see angles in the range of -90 to 90 since we use np.arctan
-    # bin_angles = np.array([(angles[i] + angles[i + 1])/2 for i in range(bins)])  # bars will be placed in the middle of the bins
-    # width = angles[1] - angles[0]  # width of bins
-    #
-    # keep = np.array([i for i in range(len(avg)) if not np.isnan(avg[i])])
-    #
-    # plt.figure()
-    # plt.bar(bin_angles[keep], avg[keep], width=width, color='#1f77b4')
-    # plt.xlabel('Angle with x axis', fontsize=14)
-    # plt.ylabel('Normalized integrated intensity', fontsize=14)
-    # plt.gcf().get_axes()[0].tick_params(labelsize=14)
-    # plt.tight_layout()
-    # plt.savefig('angle_v_I.png')
-    # # plt.imshow(area_to_integrate.T)
-    # plt.show()
-    # exit()
-
-    # fig.ylim(np.amin(YMG), np.amax(YMG))
-    # fig.xlim(np.amin(XMG), np.amax(XMG))
-    #
-
-    plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
-    plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
-    plt.gcf().get_axes()[0].set_xlabel('$q_r$', fontsize=14)
-    plt.gcf().get_axes()[0].set_ylabel('$q_z$', fontsize=14)
-    plt.gcf().get_axes()[0].set_aspect('equal')
-    plt.gcf().get_axes()[0].tick_params(labelsize=14)
-    plt.tight_layout()
-    fig.savefig(path+"rzplot"+format, dpi=DPI)
-    fig.clf()
-    exit()
-    measure_intensity = False
-
-    if measure_intensity:
-
-        from PIL import Image
-        im = Image.open(path+"rzplot"+format)
-        pix = im.load()
-        left = 0
-        upper = 0
-        right = im.size[0]
-        lower = im.size[1]
-        box = (left, upper, right, lower)
-        box = (428, 171, 1542, 1283)
-        region = im.crop(box)
-        region.show()
-        print("Please crop the image so only the diffraction pattern is showing")
-        response = input("Is this good? ")
-
-        while response != 'yes':
-            new_box_info = input("Please enter new box dimensions: ")
-            new = new_box_info.split()
-            if 'left' in new:
-                left += int(new[new.index('left') + 1])
-            if 'upper' in new:
-                upper += int(new[new.index('upper') + 1])
-            if 'right' in new:
-                right += int(new[new.index('right') + 1])
-            if 'lower' in new:
-                lower += int(new[new.index('lower') + 1])
-            if 'zoom' in new:
-                factor = float(new[new.index('zoom') + 1])
-                print("Zooming in by a factor of %s" % factor)
-                left += (right - left) / (factor * 2)
-                right -= (right - left) / (factor * 2)
-                upper += (lower - upper) / (factor * 2)
-                lower -= (lower - upper) / (factor * 2)
-
-            box = (left, upper, right, lower)
-            region = im.crop(box)
-            region.show()
-            response = input("Is this good? ")
-
-        full_plot = box
-        yrange = full_plot[2] - full_plot[0]  # right - left
-        xrange = full_plot[3] - full_plot[1]  # lower - upper
-
-        print(full_plot)
-
-        print("Now crop the picture to the region where you'd like to measure average intensity")
-
-        response = input("Is this good? ")
-        while response != 'yes':
-            new_box_info = input("Please enter new box dimensions: ")
-            new = new_box_info.split()
-            if 'left' in new:
-                left += int(new[new.index('left') + 1])
-            if 'upper' in new:
-                upper += int(new[new.index('upper') + 1])
-            if 'right' in new:
-                right += int(new[new.index('right') + 1])
-            if 'lower' in new:
-                lower += int(new[new.index('lower') + 1])
-            if 'zoom' in new:
-                factor = float(new[new.index('zoom') + 1])
-                print("Zooming in by a factor of %s" % factor)
-                left += (right - left) / (factor * 2)
-                right -= (right - left) / (factor * 2)
-                upper += (lower - upper) / (factor * 2)
-                lower -= (lower - upper) / (factor * 2)
-
-            box = (left, upper, right, lower)
-            region = im.crop(box)
-            region.show()
-            response = input("Is this good? ")
-
-        region = box
-        print(region)
-        print(Hrz.shape)
-        print(full_plot)
-        print(xrange, yrange)
-        lx = int(Hrz.shape[1]*(region[0] - full_plot[0]) / xrange)
-        rx = int(Hrz.shape[1]*(region[2] - full_plot[0]) / xrange)
-        ty = Hrz.shape[0] - int(Hrz.shape[0]*(region[1] - full_plot[1]) / yrange)
-        by = Hrz.shape[0] - int(Hrz.shape[0]*(region[3] - full_plot[1]) / yrange)
-        print(lx,rx,ty,by)
-
-        #plt.pcolormesh(XMG[lx:rx, by:ty], YMG[lx:rx, by:ty], Hrz.T[lx:rx, by:ty], vmin=0.0, vmax=0.007*np.amax(Hrz))
-        plt.pcolormesh(XMG[by:ty, lx:rx], YMG[by:ty, lx:rx], Hrz.T[by:ty, lx:rx], vmin=0.0, vmax=0.007*np.amax(Hrz))
-        plt.show()
-        print(np.mean(Hrz.T[by:ty, lx:rx]))
 
     plt.pcolormesh(XMG[:-1, :], YMG[:-1, :], np.log10(Hrz.T), vmin=np.amin(np.log10(Hrz)), vmax=np.amax(np.log10(Hrz)))
     plt.savefig(path+"_log_rzplot"+format, dpi=DPI)
     plt.clf()
     print("_log_rzplot saved")
 
+    mn = np.amin(Hrz[np.nonzero(Hrz)])
+    Hbuf = np.where(Hrz > 0.0, Hrz, mn)
+    Log_HRZ = np.log10(Hbuf)
+
+    plt.pcolormesh(XMG[:-1, :] - dx1 / 2.0, YMG[:-1, :], Log_HRZ.T, vmin=np.amin(Log_HRZ), vmax=np.amax(Log_HRZ),
+                   cmap='nipy_spectral')
+    plt.colorbar()
+    plt.savefig(path + "_log_rzplot" + format, dpi=DPI)
+    plt.clf()
+
     Nx = D.shape[0]
     Ny = D.shape[1]
     Nz = D.shape[2]
 
-#==============flat and Ewald-corrected plots=================
+    #==============flat and Ewald-corrected plots=================
 
-    xypts=[]
-    xyflat=[]
+    xypts = []
+    xyflat = []
     for ix in range(D.shape[0]):
         for iy in range(D.shape[1]):
             xp = D[ix, iy, int(Nz/2), 0]
@@ -1561,7 +1200,7 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
             xypts.append((xp*np.cos(theta), yp*np.cos(theta), K_ES*(1.0 - np.cos(theta))))
             xyflat.append((xp, yp, 0.0))
 
-    xzpts =[]
+    xzpts = []
     xzflat = []
 
     for ix in range(D.shape[0]):
@@ -1598,8 +1237,6 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
     EWDxzflat = ES(xzflat)
     EWDyzflat = ES(yzflat)
 
-
-
     EWDxy = EWDxy.reshape(D.shape[0], D.shape[1])
     EWDxz = EWDxz.reshape(D.shape[0], D.shape[2])
     EWDyz = EWDyz.reshape(D.shape[1], D.shape[2])
@@ -1625,13 +1262,13 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
     plt.savefig(path+fname+"xy"+str(iz)+format,dpi=DPI)
     plt.clf()
 
-    lax=['x','y','z']
+    lax = ['x', 'y', 'z']
 
     ewlab = "Ewald"
     flab = "Flat"
 
-    iax1=0
-    iax2=1
+    iax1 = 0
+    iax2 = 1
 
     EWDxy = np.ma.masked_invalid(EWDxy)
     EWDxyflat = np.ma.masked_invalid(EWDxyflat)
@@ -1643,20 +1280,23 @@ def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, load, **kwargs):  #pass
     EWDyzflat = np.ma.masked_invalid(EWDyzflat)
 
     if PLOT_EWALDS:
-        csplot_wlog(D[:, :, int(Nz/2)+1, iax1],D[:,:,int(Nz/2)+1,iax2],EWDxy, contours,ewlab,lax[iax1],lax[iax2],**kwargs)
+        csplot_wlog(D[:, :, int(Nz / 2) + 1, iax1], D[:, :, int(Nz / 2) + 1, iax2], EWDxy, contours, ewlab, lax[iax1],
+                    lax[iax2], **kwargs)
 
     csplot_wlog(D[:,:,int(Nz/2)+1,iax1],D[:,:,int(Nz/2)+1,iax2],EWDxyflat,contours,flab ,lax[iax1],lax[iax2],**kwargs)
 
-    iax1=0
-    iax2=2
+    iax1 = 0
+    iax2 = 2
     if PLOT_EWALDS:
-        csplot_wlog(D[:,int(Ny/2),:,iax1],D[:,int(Ny/2),:,iax2],EWDxz,    contours,ewlab,lax[iax1],lax[iax2],**kwargs)
+        csplot_wlog(D[:, int(Ny / 2), :, iax1], D[:, int(Ny / 2), :, iax2], EWDxz, contours, ewlab, lax[iax1],
+                    lax[iax2], **kwargs)
 
     csplot_wlog(D[:,int(Ny/2),:,iax1],D[:,int(Ny/2),:,iax2],EWDxzflat,contours,flab ,lax[iax1],lax[iax2],**kwargs)
 
-    iax1=1
-    iax2=2
+    iax1 = 1
+    iax2 = 2
     if PLOT_EWALDS:
-        csplot_wlog(D[int(Nx/2),:,:,iax1],D[int(Nx/2),:,:,iax2],EWDyz,    contours,ewlab,lax[iax1],lax[iax2],**kwargs)
+        csplot_wlog(D[int(Nx / 2), :, :, iax1], D[int(Nx / 2), :, :, iax2], EWDyz, contours, ewlab, lax[iax1],
+                    lax[iax2], **kwargs)
 
     csplot_wlog(D[int(Nx/2),:,:,iax1],D[int(Nx/2),:,:,iax2],EWDyzflat,contours,flab ,lax[iax1],lax[iax2],**kwargs)
