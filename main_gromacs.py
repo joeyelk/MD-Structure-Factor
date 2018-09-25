@@ -89,7 +89,7 @@ if __name__ == "__main__":
 
     if args.random_noise > 0:
 
-        dens2.RANDOM_NOISE = args.random_noise
+        dens.RANDOM_NOISE = args.random_noise
 
     if args.nocolorbar:
 
@@ -155,10 +155,10 @@ if __name__ == "__main__":
 
         print("saving...")
         np.savez_compressed(sfname, dims=dims, coords=coords, name=name, typ=typ)
-        rad = dens2.load_radii("%s/radii.txt" % location)  # load radii definitions from file
+        rad = dens.load_radii("%s/radii.txt" % location)  # load radii definitions from file
         print("computing SF...")
 
-        dens2.compute_sf(coords, dims, typ, sfname, rad, ucell, args.spatial_resolution) # compute time-averaged 3d structure factor and save to sfname.npz
+        dens.compute_sf(coords, dims, typ, sfname, rad, ucell, args.spatial_resolution) # compute time-averaged 3d structure factor and save to sfname.npz
 
     elif args.random_counts > 0: # create a random trajectory
 
@@ -183,10 +183,10 @@ if __name__ == "__main__":
 
         print("saving...")
         np.savez_compressed("RAND", dims=dims, coords=coords, name=name, typ=typ)
-        rad = dens2.load_radii("%s/radii.txt" % location)  # load radii definitions from file
+        rad = dens.load_radii("%s/radii.txt" % location)  # load radii definitions from file
         print("computing SF...")
 
-        dens2.compute_sf(coords, dims, typ, sfname, rad, ucell, args.spatial_resolution) # compute time-averaged 3d structure
+        dens.compute_sf(coords, dims, typ, sfname, rad, ucell, args.spatial_resolution) # compute time-averaged 3d structure
 
     else:  # load trajectory or npz file
 
@@ -209,9 +209,9 @@ if __name__ == "__main__":
                 T[..., 1] = T[..., 1] / np.sin(theta)
                 T[..., 0] = T[..., 0] - T[..., 1]*np.cos(theta)
 
-            rad = dens2.load_radii("%s/radii.txt" % location)  # load radii definitions from file
+            rad = dens.load_radii("%s/radii.txt" % location)  # load radii definitions from file
 
-            dens2.compute_sf(T[args.first_frame:args.end_frame, ...], traj['dims'][args.first_frame:args.end_frame, ...],
+            dens.compute_sf(T[args.first_frame:args.end_frame, ...], traj['dims'][args.first_frame:args.end_frame, ...],
                              traj['typ'], sfname, rad, ucell, args.spatial_resolution)
 
     print("reloading SF...")

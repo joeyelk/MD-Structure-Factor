@@ -8,6 +8,18 @@ import mdtraj as md
 """ process trajectory and topology file and store in output file as np array """
 
 
+def load_gro(gro):
+    """
+    Read atom names for .gro file
+    :param gro: name of .gro file
+    :return:
+    """
+    with open(gro) as f:
+        lines = f.readlines()
+
+    return [i[10:15].strip() for i in lines[2:-1]]
+
+
 def process(topology_filename, trajectory_filename, output_filename):
 
     print("processing ", trajectory_filename)
@@ -94,5 +106,6 @@ def process_gro_mdtraj(topology_filename, trajectory_filename, output_filename):
 
     print("saving ", output_filename)
 
-    np.savez_compressed(output_filename, dims=dims, coords=coords, name=name, mass=mass, typ=typ)
+    # BJC: It doesn't look like name or mass needs to be read or saved
+    np.savez_compressed(output_filename, dims=dims, coords=coords, name=name, mass=mass, typ=name)
     print('done saving')
