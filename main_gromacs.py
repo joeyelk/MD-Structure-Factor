@@ -7,7 +7,7 @@ from builtins import range
 import numpy as np
 import math
 import os.path
-import dens2
+import dens
 import plot2d as p2d
 import tqdm  # progress bar
 from tqdm import trange
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     np.random.seed = args.random_seed  # args.random_noise
     p2d.NBINSRAD = args.number_bins_rad
     p2d.theta = theta
-    dens2.theta = theta
+    dens.theta = theta
 
     if args.random_noise > 0:
 
