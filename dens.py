@@ -3,12 +3,9 @@ from __future__ import print_function
 from builtins import range
 from past.utils import old_div
 import numpy as np
-import numpy.linalg
 import math
-import matplotlib.pyplot as plt
 import tqdm
 from tqdm import trange
-from plot2d import pl
 
 USE_BETTER_RESOLUTION = True
 PRINT_DETAILS = True
@@ -90,15 +87,7 @@ def remap_grid_tcl(d0, des, ori):
 
     #remap borders onto periodic cell
 
-    # print "="*50
-    # print "="*50
-    # print "ori"
-    # print ori
-    # print "0,1"
-    # print ori[0][1]
-
     d1=np.copy(d0[ori[0][1]:ori[0][2],ori[1][1]:ori[1][2],ori[2][1]:ori[2][2]])
-
 
     for io1 in range(0,4,2):
         id1=2-io1
@@ -231,19 +220,6 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
                         r[it, imin:imax, :] = np.where(r[it, imin:imax, :] < L, r[it, imin:imax, :], r[it, imin:imax, :] - L)  #get positions in periodic cell
                         r[it, imin:imax, :] = np.where(r[it, imin:imax, :] > zv, r[it, imin:imax, :], r[it, imin:imax, :] + L)
 
-    # from llclib import file_rw
-    # import mdtraj as md
-    #
-    # t = md.load('wiggle.gro')
-    # ids = [a.name for a in t.topology.atoms]
-    # res = [a.residue.name for a in t.topology.atoms]
-    # full_box = t.unitcell_vectors
-    # # box_gromacs = [full_box[0, 0, 0], full_box[0, 1, 1], full_box[0, 2, 2], full_box[0, 0, 1], full_box[0, 2, 0],
-    # #                 full_box[0, 1, 0], full_box[0, 0, 2], full_box[0, 1, 2], full_box[0, 2, 0]]
-    # box = [full_box[0, 0, 0], full_box[0, 0, 0], full_box[0, 2, 2]]
-    # file_rw.write_gro_pos(r[0, :, :]/10, 'test.gro', ids=ids, res=res, box=box)
-    # exit()
-
     bdict = get_borders(rad, dr, set(typ))	#dictionary of borders by atom type
 
     # temporary workaround to line following this block for python 3 implementation
@@ -265,7 +241,9 @@ def compute_sf(r, L, typ, out_filename, rad, ucell, Sres):
     sf = np.zeros([int(Nspatialgrid[0]), int(Nspatialgrid[1]), int(Nspatialgrid[2]/2) + 1], dtype=dtyp)#3d Structure factor
 
     #spatial grid.  grid[x,y,z,0] gives x coordinate of this grid position.  4th index value of 3 will ultimately store SF data
-    grid=np.zeros((int(Nspatialgrid[0])+2*Nborder,int(Nspatialgrid[1])+2*Nborder,int(Nspatialgrid[2])+2*Nborder,4),dtype=dtyp)		#if this causes a MemoryError for your system, consider changing dtyp from np.float64 to np.float32 or smaller
+    grid = np.zeros(
+        (int(Nspatialgrid[0]) + 2 * Nborder, int(Nspatialgrid[1]) + 2 * Nborder, int(Nspatialgrid[2]) + 2 * Nborder, 4),
+        dtype=dtyp)  # if this causes a MemoryError for your system, consider changing dtyp from np.float64 to np.float32 or smaller
     # except
     # print "Memory Allocation Error.  Please reduce dtyp in file dens.py and try again"
     # print "current dtyp=",dtyp
