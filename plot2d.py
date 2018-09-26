@@ -701,13 +701,13 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, format=False, factor=3.1, **kwa
 
         rpi_ndx = np.argmin(np.abs(zfin[0] - zfin[0][np.argmax(final[rfin.size // 2, :])]))
 
-        plt.plot(rfin, final[:, rpi_ndx], linewidth=2, color='xkcd:blue')
+        plt.plot(rfin, final[:, rpi_ndx], linewidth=2, color='blue')  # its xkcd:blue in paper
 
         p = np.array([0, 0.3, 4, 1])
         solp, cov_x = curve_fit(gaussian, rfin, final[:, rpi_ndx], p,
-                                bounds=([-np.inf, 0, 0, 0], [np.inf, np.inf, np.inf, np.inf]))
+                                bounds=((-np.inf, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf)))
 
-        plt.plot(rfin, gaussian(rfin, solp[0], solp[1], solp[2], solp[3]), '--', color='xkcd:blue', label='Gaussian Fit',
+        plt.plot(rfin, gaussian(rfin, solp[0], solp[1], solp[2], solp[3]), '--', color='blue', label='Gaussian Fit',
                  linewidth=2)
 
         print("Gaussian FWHM = %.3f +/- %.3f A^-1" % (2*np.sqrt(2*np.log(2))*solp[1],
@@ -718,7 +718,7 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, format=False, factor=3.1, **kwa
                                 bounds=[[0, -np.inf, 0], [np.inf, np.inf, np.inf]])
 
         plt.plot(rfin, lorentz(rfin, solp_lorentz[0], solp_lorentz[1], solp_lorentz[2]), '--', label='Lorentzian Fit',
-                 linewidth=2, color='xkcd:orange')
+                 linewidth=2, color='orange')  # its xkcd:orange in the paper
 
         print("Lorentzian FWHM = %.3f +/- %.3f A^-1" % (solp_lorentz[0], cov_x[0, 0] ** 0.5))
 
@@ -734,14 +734,14 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, format=False, factor=3.1, **kwa
 
         rndx = rfin.size // 2
         zstart = zfin[0].size // 2
-        plt.plot(zfin[0][zstart:], final[rndx, zstart:], linewidth=2, color='xkcd:blue')
+        plt.plot(zfin[0][zstart:], final[rndx, zstart:], linewidth=2, color='blue')
 
         p = np.array([1.4, 0.1, 7, 0])
         solp, cov_x = curve_fit(gaussian, zfin[0][zstart:], final[rndx, zstart:], p,
                                 bounds=([-np.inf, 0, 0, 0], [np.inf, np.inf, np.inf, np.inf]))
 
         fine_grid = np.linspace(zfin[0][zstart], zfin[0][-1], 1000)
-        plt.plot(fine_grid, gaussian(fine_grid, solp[0], solp[1], solp[2], solp[3]), '--', color='xkcd:blue', label='Gaussian Fit',
+        plt.plot(fine_grid, gaussian(fine_grid, solp[0], solp[1], solp[2], solp[3]), '--', color='blue', label='Gaussian Fit',
                  linewidth=2)
 
         print("Gaussian FWHM = %.3f +/- %.3f A^-1" % (2*np.sqrt(2*np.log(2))*solp[1],
@@ -752,7 +752,7 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, format=False, factor=3.1, **kwa
                                 bounds=[[0, -np.inf, 0], [np.inf, np.inf, np.inf]])
 
         plt.plot(fine_grid, lorentz(fine_grid, solp_lorentz[0], solp_lorentz[1], solp_lorentz[2]), '--',
-                 label='Lorentzian Fit', linewidth=2, color='xkcd:orange')
+                 label='Lorentzian Fit', linewidth=2, color='orange')
 
         print("Lorentzian FWHM = %.3f +/- %.3f A^-1" % (solp_lorentz[0], cov_x[0, 0] ** 0.5))
 
@@ -1007,7 +1007,7 @@ def mc_inv(D, ucell):
 
 def Plot_Ewald_triclinic(D, wavelength_angstroms, ucell, factor=3.1, format=True, **kwargs):  # pass full 3d data,SF,wavelength in angstroms
 
-    PLOT_RAD_NEW(D, wavelength_angstroms, ucell, **kwargs, factor=factor, format=format)
+    PLOT_RAD_NEW(D, wavelength_angstroms, ucell, factor=factor, format=format, **kwargs)
     exit()
 
     if not os.path.exists(path):
