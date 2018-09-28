@@ -8,11 +8,14 @@ scipy
 ## Example
 
 example program usage:
-
+```
 main_gromacs.py -i foo    
+```
 (loads foo.gro and foo.trr)
 
+```
 main_gromacs.py -top foo.gro -traj foo.trr
+```
 
 The program will then create two intermediate files, out_foo_traj.npz and out_foo_sf.npz.  On subsequent runs of the program with the same inputs, these files will be automatically reloaded.  
 
