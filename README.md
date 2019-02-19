@@ -8,6 +8,7 @@ Calculates 3d structure factor and simulated x-ray diffraction pattern from mole
  * [tqdm](https://pypi.org/project/tqdm/)
  * [MDAnalysis](https://www.mdanalysis.org/)
  * [duecredit](https://github.com/duecredit/duecredit)
+ * setuptools
 
 ## Example
 
