@@ -9,6 +9,7 @@ Calculates 3d structure factor and simulated x-ray diffraction pattern from mole
  * [MDAnalysis](https://www.mdanalysis.org/)
  * [duecredit](https://github.com/duecredit/duecredit)
  * setuptools
+ * wheel
 
 ## Example
 
