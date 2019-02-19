@@ -10,6 +10,11 @@ Calculates 3d structure factor and simulated x-ray diffraction pattern from mole
  * [duecredit](https://github.com/duecredit/duecredit)
  * setuptools
  * wheel
+ * vtk
+ 
+```
+python pip install setuptools wheel vtk scipy tqdm MDAnalsysis duecredit mayavi
+```
 
 ## Example
 
