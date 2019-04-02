@@ -1,0 +1,17 @@
+sudo: required
+
+dist: xenial
+addons:
+  apt:
+    update: true
+
+language: python
+
+before_install:
+  - pip install --user --upgrade pip
+
+install:
+  - pip install -r requirements.txt
+
+script:
+  - python test/test_load_traj.py
