@@ -1,6 +1,10 @@
 # MD-Structure-Factor
 Calculates 3d structure factor and simulated x-ray diffraction pattern from molecular dynamics trajectories
 
+## Badges
+
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/98f35ccf8532431db930b7c7f34c1c92)](https://www.codacy.com/app/JoshuaSBrown/MD-Structure-Factor?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=joeyelk/MD-Structure-Factor&amp;utm_campaign=Badge_Grade)
+
 ## Dependencies
 
  * [scipy](https://www.scipy.org/)
