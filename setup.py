@@ -4,7 +4,8 @@ from distutils.core import setup
 setup(
     name='MD-Structure-Factor',
     version='1.0',
-    packages=['md-structure-factor',],
+    packages=['Md-Structure-Factor',],
     license=open('LICENSE').read(),
     log-description=open('README.md').read(),
+    install_requires=['wheel','setuptools','duecredit','tqdm','MDAnalysis','mdtraj','future','vtk','scipy','mayavi'],
         )
