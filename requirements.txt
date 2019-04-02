@@ -1,0 +1,10 @@
+wheel
+setuptools
+duecredit
+tqdm
+MDAnalysis
+mdtraj
+future
+vtk
+scipy
+mayavi
