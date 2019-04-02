@@ -3,7 +3,7 @@ setuptools
 duecredit
 tqdm
 MDAnalysis
-numpy>=1.15.0
+numpy
 cython>=0.19
 mdtraj
 future

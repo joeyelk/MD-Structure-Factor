@@ -8,13 +8,11 @@ addons:
 language: python
 
 python:
-  - "3.4"
   - "3.5"
   - "3.6"
 
 before_install:
   - pip install --upgrade pip
-  - pip install "numpy>=1.15.0"
   - pip install cython
   - pip install vtk
   - pip install pandas
