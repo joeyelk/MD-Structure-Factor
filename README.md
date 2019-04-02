@@ -36,4 +36,7 @@ Output:
 
 The program will create a folder foo_plots, which will contain subfolders with various cross sections through the 3d structure factor.  Additionally, Ewald-corrected plots will be produced.  These more accurately show what would be seen in an x-ray diffraction experiment.  
 
+## Papers
+
+Coscia, B. J., Yelk, J., Glaser, M. A., Gin, D. L., Feng, X., & Shirts, M. R. (2019). Understanding the Nanoscale Structure of Inverted Hexagonal Phase Lyotropic Liquid Crystal Polymer Membranes. Journal of Physical Chemistry B, 123(1), 289–309. https://doi.org/10.1021/acs.jpcb.8b09944
 
