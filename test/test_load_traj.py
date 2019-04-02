@@ -8,7 +8,7 @@ path_to_tests=str(os.path.dirname(os.path.realpath(__file__)))
 path_to_tests+="/../"
 sys.path.insert(0,path_to_tests)
 
-# Import local files 
+# Import local files
 import load_traj
 
 class TestLoadingTrajectoryFiles(unittest.TestCase):
