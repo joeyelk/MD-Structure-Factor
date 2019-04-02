@@ -4,6 +4,7 @@ Calculates 3d structure factor and simulated x-ray diffraction pattern from mole
 ## Badges
 
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/98f35ccf8532431db930b7c7f34c1c92)](https://www.codacy.com/app/JoshuaSBrown/MD-Structure-Factor?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=joeyelk/MD-Structure-Factor&amp;utm_campaign=Badge_Grade)
+[![Build Status](https://travis-ci.com/joeyelk/MD-Structure-Factor.svg?branch=master)](https://travis-ci.com/joeyelk/MD-Structure-Factor)
 
 ## Dependencies
 
@@ -13,13 +14,20 @@ Calculates 3d structure factor and simulated x-ray diffraction pattern from mole
  * [MDAnalysis](https://www.mdanalysis.org/)
  * [duecredit](https://github.com/duecredit/duecredit)
  * [mdtraj](http://mdtraj.org/1.8.0/installation.html)
+ * [pandas](https://pandas.pydata.org/)
  * future
  * setuptools
  * wheel
  * vtk
  
+## Installation 
+
 ```
-python pip install setuptools wheel vtk scipy tqdm MDAnalsysis duecredit mayavi future mdtraj
+pip install --upgrade pip                                                   
+pip install cython                                                          
+pip install vtk                                                             
+pip install pandas                                                          
+pip install -r requirements.txt
 ```
 
 ## Example
