@@ -3,6 +3,8 @@ setuptools
 duecredit
 tqdm
 MDAnalysis
+numpy
+cython
 mdtraj
 future
 vtk
