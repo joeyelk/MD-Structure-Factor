@@ -6,6 +6,6 @@ setup(
     version='1.0',
     packages=['Md-Structure-Factor',],
     license=open('LICENSE').read(),
-    log-description=open('README.md').read(),
+    long_description=open('README.md').read(),
     install_requires=['wheel','setuptools','duecredit','tqdm','MDAnalysis','mdtraj','future','vtk','scipy','mayavi'],
         )
