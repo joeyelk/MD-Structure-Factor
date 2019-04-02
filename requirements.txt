@@ -4,7 +4,7 @@ duecredit
 tqdm
 MDAnalysis
 numpy
-cython
+cython>=0.19
 mdtraj
 future
 vtk
