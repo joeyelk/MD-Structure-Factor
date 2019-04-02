@@ -5,6 +5,6 @@ setup(
     name='MD-Structure-Factor',
     version='1.0',
     packages=['md-structure-factor',],
-    license='',
-    log-description=open('README.txt').read(),
+    license=open('LICENSE').read(),
+    log-description=open('README.md').read(),
         )
