@@ -1,0 +1,24 @@
+sudo: required
+
+dist: xenial
+addons:
+  apt:
+    update: true
+
+language: python
+
+python:
+  - "3.5"
+  - "3.6"
+
+before_install:
+  - pip install --upgrade pip
+  - pip install cython
+  - pip install vtk
+  - pip install pandas
+
+install:
+  - pip install -r requirements.txt
+
+script:
+  - python test/test_load_traj.py

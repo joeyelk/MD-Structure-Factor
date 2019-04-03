@@ -1,0 +1,13 @@
+wheel
+setuptools
+duecredit
+tqdm
+MDAnalysis
+numpy
+cython>=0.19
+mdtraj
+future
+vtk
+scipy
+mayavi
+pandas
