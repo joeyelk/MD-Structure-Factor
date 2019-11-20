@@ -22,7 +22,7 @@ import datetime
 
 colorbar = True
 
-matplotlib.rc('axes', color_cycle=['r', 'g', 'b', '#004060'])
+# matplotlib.rc('axes', color_cycle=['r', 'g', 'b', '#004060'])
 
 mainlabel = ""
 
@@ -669,7 +669,6 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, format=False, factor=3.1, **kwa
     if format:
 
         cmap = 'jet'
-        print(factor)
         lvls = np.linspace(0, factor, NLEVELS)
         lvls_log = np.linspace(np.log10(final[-1, -1]), np.log10(np.amax(final)), NLEVELS)
 
@@ -681,19 +680,24 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, format=False, factor=3.1, **kwa
         plt.tight_layout()
 
         plt.figure()
-
         heatmap = plt.contourf(rfin, zfin[0], final.T, levels=lvls, cmap=cmap, extend='max')
         cbar = plt.colorbar(heatmap)
+        cbar.ax.tick_params(labelsize=18)
+        cbar.set_ticks([0, 0.5, 1, 1.5, 2, 2.5, 3.1])
         plt.xlabel('$q_r\ (\AA^{-1}$)', fontsize=18)
         plt.ylabel('$q_z\ (\AA^{-1}$)', fontsize=18)
         plt.gcf().get_axes()[0].set_ylim(-2.5, 2.5)
         plt.gcf().get_axes()[0].set_xlim(-2.5, 2.5)
-        plt.gcf().get_axes()[0].tick_params(labelsize=14)
+        plt.gcf().get_axes()[0].tick_params(labelsize=20)
         plt.gcf().get_axes()[0].set_aspect('equal')
+        # plt.text(-2, 2, "(e)", fontsize=32, color='white', verticalalignment='center', horizontalalignment='center')
+        #plt.text(0, 2, "Head groups removed", fontsize=18, color='white', verticalalignment='center', horizontalalignment='center')
+        plt.xticks([-2, -1, 0, 1, 2])
         plt.tight_layout()
         plt.savefig('rzplot.png')
         print('rzplot.png saved')
-
+        # plt.show()
+        # exit()
         ################# Q_R and Q_Z CROSS_SECTIONS OF R_PI WITH GAUSSIAN AND LORENTZIAN FITS ##################
         ############################### FIT TO QR CROSS-SECTION OF R-PI #########################
 
@@ -703,30 +707,31 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, format=False, factor=3.1, **kwa
 
         plt.plot(rfin, final[:, rpi_ndx], linewidth=2, color='blue')  # its xkcd:blue in paper
 
-        p = np.array([0, 0.3, 4, 1])
-        solp, cov_x = curve_fit(gaussian, rfin, final[:, rpi_ndx], p,
-                                bounds=((-np.inf, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf)))
+        # p = np.array([0, 0.3, 4, 1])
+        # solp, cov_x = curve_fit(gaussian, rfin, final[:, rpi_ndx], p,
+        #                         bounds=((-np.inf, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf)))
+        #
+        # plt.plot(rfin, gaussian(rfin, solp[0], solp[1], solp[2], solp[3]), '--', color='blue', label='Gaussian Fit',
+        #          linewidth=2)
+        #
+        # print("Gaussian FWHM = %.3f +/- %.3f A^-1" % (2*np.sqrt(2*np.log(2))*solp[1],
+        #                                        2 * np.sqrt(2 * np.log(2)) * cov_x[1, 1] ** 0.5))
+        #
+        # p = np.array([0.1, 0, 4])
+        # solp_lorentz, cov_x = curve_fit(lorentz, rfin, final[:, rpi_ndx], p,
+        #                         bounds=[[0, -np.inf, 0], [np.inf, np.inf, np.inf]])
+        #
+        # plt.plot(rfin, lorentz(rfin, solp_lorentz[0], solp_lorentz[1], solp_lorentz[2]), '--', label='Lorentzian Fit',
+        #          linewidth=2, color='orange')  # its xkcd:orange in the paper
+        #
+        # print("Lorentzian FWHM = %.3f +/- %.3f A^-1" % (solp_lorentz[0], cov_x[0, 0] ** 0.5))
 
-        plt.plot(rfin, gaussian(rfin, solp[0], solp[1], solp[2], solp[3]), '--', color='blue', label='Gaussian Fit',
-                 linewidth=2)
-
-        print("Gaussian FWHM = %.3f +/- %.3f A^-1" % (2*np.sqrt(2*np.log(2))*solp[1],
-                                               2 * np.sqrt(2 * np.log(2)) * cov_x[1, 1] ** 0.5))
-
-        p = np.array([0.1, 0, 4])
-        solp_lorentz, cov_x = curve_fit(lorentz, rfin, final[:, rpi_ndx], p,
-                                bounds=[[0, -np.inf, 0], [np.inf, np.inf, np.inf]])
-
-        plt.plot(rfin, lorentz(rfin, solp_lorentz[0], solp_lorentz[1], solp_lorentz[2]), '--', label='Lorentzian Fit',
-                 linewidth=2, color='orange')  # its xkcd:orange in the paper
-
-        print("Lorentzian FWHM = %.3f +/- %.3f A^-1" % (solp_lorentz[0], cov_x[0, 0] ** 0.5))
-
-        plt.legend(fontsize=16)
+        # plt.legend(fontsize=16)
         plt.xlabel('$q_r\ (\AA^{-1})$', fontsize=18)
         plt.ylabel('Intensity', fontsize=18)
         plt.gcf().get_axes()[0].tick_params(labelsize=18)
         plt.tight_layout()
+        plt.show()
         #plt.savefig('/home/bcoscia/PycharmProjects/LLC_Membranes/Ben_Manuscripts/structure_paper/figures/sim_rsection_fit.pdf')
 
         ######################## FIT TO QZ CROSS-SECTION OF R-PI #########################

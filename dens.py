@@ -40,6 +40,7 @@ def get_borders(ad, dr, keys):
     bdict = {}
     for a in keys:
         bdict[a] = ad[a][1]*np.sqrt(np.log(old_div(ad[a][0], PRECISION)))/dr
+
     return bdict
 
 
