@@ -22,7 +22,7 @@ import datetime
 
 colorbar = True
 
-matplotlib.rc('axes', color_cycle=['r', 'g', 'b', '#004060'])
+#matplotlib.rc('axes', color_cycle=['r', 'g', 'b', '#004060'])
 
 mainlabel = ""
 
@@ -729,41 +729,41 @@ def PLOT_RAD_NEW(D, wavelength_angstroms, ucell, format=False, factor=3.1, **kwa
         plt.tight_layout()
         #plt.savefig('/home/bcoscia/PycharmProjects/LLC_Membranes/Ben_Manuscripts/structure_paper/figures/sim_rsection_fit.pdf')
 
-        ######################## FIT TO QZ CROSS-SECTION OF R-PI #########################
-        plt.figure()
-
-        rndx = rfin.size // 2
-        zstart = zfin[0].size // 2
-        plt.plot(zfin[0][zstart:], final[rndx, zstart:], linewidth=2, color='blue')
-
-        p = np.array([1.4, 0.1, 7, 0])
-        solp, cov_x = curve_fit(gaussian, zfin[0][zstart:], final[rndx, zstart:], p,
-                                bounds=([-np.inf, 0, 0, 0], [np.inf, np.inf, np.inf, np.inf]))
-
-        fine_grid = np.linspace(zfin[0][zstart], zfin[0][-1], 1000)
-        plt.plot(fine_grid, gaussian(fine_grid, solp[0], solp[1], solp[2], solp[3]), '--', color='blue', label='Gaussian Fit',
-                 linewidth=2)
-
-        print("Gaussian FWHM = %.3f +/- %.3f A^-1" % (2*np.sqrt(2*np.log(2))*solp[1],
-                                               2 * np.sqrt(2 * np.log(2)) * cov_x[1, 1] ** 0.5))
-
-        p = np.array([0.1, 0, 4])
-        solp_lorentz, cov_x = curve_fit(lorentz, zfin[0][zstart:], final[rndx, zstart:], p,
-                                bounds=[[0, -np.inf, 0], [np.inf, np.inf, np.inf]])
-
-        plt.plot(fine_grid, lorentz(fine_grid, solp_lorentz[0], solp_lorentz[1], solp_lorentz[2]), '--',
-                 label='Lorentzian Fit', linewidth=2, color='orange')
-
-        print("Lorentzian FWHM = %.3f +/- %.3f A^-1" % (solp_lorentz[0], cov_x[0, 0] ** 0.5))
-
-        plt.legend(fontsize=17)
-        plt.xlabel('$q_z\ (\AA^{-1})$', fontsize=18)
-        plt.ylabel('Intensity', fontsize=18)
-        plt.gcf().get_axes()[0].tick_params(labelsize=18)
-        plt.tight_layout()
-        #plt.savefig('/home/bcoscia/PycharmProjects/LLC_Membranes/Ben_Manuscripts/structure_paper/figures/sim_zsection_fit.pdf')
-
-        print('Average R-pi intensity: %.2f' % np.amax(final[rfin.size // 2, :]))
+        # ######################## FIT TO QZ CROSS-SECTION OF R-PI #########################
+        # plt.figure()
+        #
+        # rndx = rfin.size // 2
+        # zstart = zfin[0].size // 2
+        # plt.plot(zfin[0][zstart:], final[rndx, zstart:], linewidth=2, color='blue')
+        #
+        # p = np.array([1.4, 0.1, 7, 0])
+        # solp, cov_x = curve_fit(gaussian, zfin[0][zstart:], final[rndx, zstart:], p,
+        #                         bounds=([-np.inf, 0, 0, 0], [np.inf, np.inf, np.inf, np.inf]))
+        #
+        # fine_grid = np.linspace(zfin[0][zstart], zfin[0][-1], 1000)
+        # plt.plot(fine_grid, gaussian(fine_grid, solp[0], solp[1], solp[2], solp[3]), '--', color='blue', label='Gaussian Fit',
+        #          linewidth=2)
+        #
+        # print("Gaussian FWHM = %.3f +/- %.3f A^-1" % (2*np.sqrt(2*np.log(2))*solp[1],
+        #                                        2 * np.sqrt(2 * np.log(2)) * cov_x[1, 1] ** 0.5))
+        #
+        # p = np.array([0.1, 0, 4])
+        # solp_lorentz, cov_x = curve_fit(lorentz, zfin[0][zstart:], final[rndx, zstart:], p,
+        #                         bounds=[[0, -np.inf, 0], [np.inf, np.inf, np.inf]])
+        #
+        # plt.plot(fine_grid, lorentz(fine_grid, solp_lorentz[0], solp_lorentz[1], solp_lorentz[2]), '--',
+        #          label='Lorentzian Fit', linewidth=2, color='orange')
+        #
+        # print("Lorentzian FWHM = %.3f +/- %.3f A^-1" % (solp_lorentz[0], cov_x[0, 0] ** 0.5))
+        #
+        # plt.legend(fontsize=17)
+        # plt.xlabel('$q_z\ (\AA^{-1})$', fontsize=18)
+        # plt.ylabel('Intensity', fontsize=18)
+        # plt.gcf().get_axes()[0].tick_params(labelsize=18)
+        # plt.tight_layout()
+        # #plt.savefig('/home/bcoscia/PycharmProjects/LLC_Membranes/Ben_Manuscripts/structure_paper/figures/sim_zsection_fit.pdf')
+        #
+        # print('Average R-pi intensity: %.2f' % np.amax(final[rfin.size // 2, :]))
         #print('Average R-spots intensity : %.2f' % Rspots(rfin, zfin[0], final.T, theta=30, theta_sigma=(1, 1),
                                                           #bounds=(1.39, 1.49), cmap=cmap))
 
